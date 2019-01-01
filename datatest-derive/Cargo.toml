@@ -1,0 +1,17 @@
+[package]
+name = "datatest-derive"
+version = "0.2.0"
+edition = "2018"
+repository = "https://github.com/commure/datatest"
+license = "MIT/Apache-2.0"
+description = """
+Procmacro for the datatest crate
+"""
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "0.6.10"
+syn = { version = "0.15.20", features = ["full"] }
+proc-macro2 = "0.4.23"

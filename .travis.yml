@@ -1,0 +1,11 @@
+language: rust
+rust: nightly
+script:
+  - rustup component add clippy
+  - rustup component add rustfmt
+  - cargo fmt --all -- --check
+  - cargo test --all --locked
+  - cargo clippy --all --all-targets -- --deny warnings
+branches:
+  only:
+    - master

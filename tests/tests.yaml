@@ -1,0 +1,6 @@
+- name: Pino
+  expected: Hi, Pino!
+- name: Re-L
+  expected: Hi, Re-L!
+- name: Vincent
+  expected: Hi, Vincent!
