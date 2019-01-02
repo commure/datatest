@@ -89,16 +89,6 @@ impl Parse for FilesTestArgs {
     }
 }
 
-/// Check if attribute is a `#[<name>]` attribute
-fn is_attribute(attr: &syn::Attribute, name: &'static str) -> bool {
-    attr.path.segments.len() == 1
-        && attr
-            .path
-            .segments
-            .first()
-            .map_or(false, |pair| pair.value().ident == name)
-}
-
 /// Proc macro handling `#[files(...)]` syntax. This attribute defines rules for deriving
 /// test function arguments from file paths. There are two types of rules:
 /// 1. Pattern rule, `<arg_name> in "<regexp>"`
@@ -258,7 +248,7 @@ fn handle_common_attrs(func: &mut ItemFn) -> bool {
     let pos = func
         .attrs
         .iter()
-        .position(|attr| is_attribute(attr, "test"));
+        .position(|attr| attr.path.is_ident("test"));
     if let Some(pos) = pos {
         func.attrs.remove(pos);
     }
@@ -267,7 +257,7 @@ fn handle_common_attrs(func: &mut ItemFn) -> bool {
     let ignore_pos = func
         .attrs
         .iter()
-        .position(|attr| is_attribute(attr, "ignore"));
+        .position(|attr| attr.path.is_ident("ignore"));
     if let Some(pos) = ignore_pos {
         func.attrs.remove(pos);
     }
