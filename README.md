@@ -1,4 +1,4 @@
-# datatest
+# Datatest: data-driven tests in Rust
 
 Crate for supporting data-driven tests.
 

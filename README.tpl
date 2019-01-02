@@ -1,4 +1,4 @@
-# {{crate}}
+# Datatest: data-driven tests in Rust
 
 {{readme}}
 
