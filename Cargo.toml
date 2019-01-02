@@ -19,3 +19,9 @@ yaml-rust = "0.4.2"
 
 [dev-dependencies]
 serde = { version = "1.0.84", features = ["derive"] }
+
+[workspace]
+members = [
+    "datatest-derive",
+    ".",
+]

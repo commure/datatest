@@ -1,4 +1,5 @@
 /.idea
 /target
+/datatest-derive/target
 **/*.rs.bk
 Cargo.lock
