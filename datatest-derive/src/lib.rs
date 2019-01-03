@@ -209,7 +209,7 @@ pub fn files(
     if pattern_idx.is_none() {
         return Error::new(
             Span::call_site(),
-            "must have exactly one pattern mapping defined via `pattern in r#\"<regular expression>\"`!",
+            "must have exactly one pattern mapping defined via `pattern in r#\"<regular expression>\"`",
         )
             .to_compile_error()
             .into();

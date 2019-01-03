@@ -43,8 +43,6 @@
 //! fn sample_test(input: &str, output: &str) {
 //!   assert_eq!(format!("Hello, {}!", input), output);
 //! }
-//!
-//! # fn main() {}
 //! ```
 //!
 //! ### Ignoring individual tests
@@ -80,7 +78,7 @@
 //! [`serde::Deserialize`]. Optionally, if this implements [`ToString`] (or [`std::fmt::Display`]),
 //! it's [`ToString::to_string`] result is used to generate test name.
 //!
-//! ### Note
+//! ### `#[test]` attribute
 //!
 //! Each test could also be marked with `#[test]` attribute, to allow running test from IDEs which
 //! have built-in support for `#[test]` tests. However, if such attribute is used, it should go
@@ -108,6 +106,10 @@
 //!
 //! # fn main() {}
 //! ```
+//!
+//! ## More examples
+//!
+//! For more examples, check the [tests](https://github.com/commure/datatest/blob/master/tests/datatest.rs).
 extern crate test;
 
 mod data;

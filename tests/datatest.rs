@@ -138,11 +138,10 @@ fn data_test_take_owned(mut data: GreeterTestCase) {
 #[datatest::data("tests/tests.yaml")]
 #[test]
 fn data_test_line_only_hoplessly_broken(_data: &GreeterTestCase) {
-    panic!("have no idea what I'm supposed to test here!")
+    panic!("this test always fails, but this is okay because we marked it as ignored!")
 }
 
-/// This test case item does not implement [`std::fmt::Display`], so only line number is shown in
-/// the test name.
+/// This test case item implements [`std::fmt::Display`], which is used to generate test name
 #[derive(Deserialize)]
 struct GreeterTestCaseNamed {
     name: String,
