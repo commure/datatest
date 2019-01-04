@@ -1,8 +1,0 @@
-[tasks.audit]
-disabled = true
-
-[tasks.outdated]
-disabled = true
-
-[tasks.copy-apidocs]
-disabled = true

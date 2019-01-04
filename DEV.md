@@ -9,4 +9,4 @@ Run `cargo test --all`
 
 ## Releasing a new version
 
-Run `cargo make build-publish-flow`
+Run `./publish.sh`
