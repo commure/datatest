@@ -2,4 +2,4 @@
 install_crate = "readme"
 command = "cargo"
 args = ["readme", "--output", "README.md"]
-
+workspace = false
