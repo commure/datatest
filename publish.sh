@@ -10,21 +10,11 @@ fi
 cargo install cargo-readme
 
 pushd "${DIR}"
+cargo clean
 cargo readme --output README.md
-cargo test
-popd
+cargo test --all
 
-pushd "${DIR}/datatest-derive"
-cargo publish --dry-run
-popd
-
-pushd "${DIR}"
-cargo publish --dry-run
-popd
-
-
-pushd "${DIR}"
-git tag --annotate --message "releasing version X.Y.Z" "vX.Y.Z"
+git tag --annotate --message "releasing version ${VER}" "v${VER}"
 git push --tags
 popd
 
