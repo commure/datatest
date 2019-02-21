@@ -1,6 +1,6 @@
 [package]
 name = "datatest-derive"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
