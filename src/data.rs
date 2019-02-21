@@ -41,30 +41,10 @@ impl<T: ToString> TestNameWithDefault for T {
     }
 }
 
-/// Trait used to abstract two cases: `fn` taking test case as a value and `fn` taking test case
-/// as a reference.
 #[doc(hidden)]
-pub trait TestFunc<T> {
-    fn invoke(&self, value: T);
-}
-
-impl<T> TestFunc<T> for fn(T) {
-    fn invoke(&self, value: T) {
-        self(value)
-    }
-}
-
-impl<T> TestFunc<T> for fn(&T) {
-    fn invoke(&self, value: T) {
-        self(&value)
-    }
-}
-
-#[doc(hidden)]
-pub fn describe<T, F>(source: &str, testfn: F) -> Vec<DataTestCase>
+pub fn describe<T>(source: &str, testfn: fn(T)) -> Vec<DataTestCase>
 where
     T: DeserializeOwned + TestNameWithDefault + Send + 'static,
-    F: TestFunc<T> + Send + Copy + 'static,
 {
     let index = index_cases(source);
     let cases: Vec<T> = serde_yaml::from_str(source).unwrap();
@@ -77,7 +57,7 @@ where
         .map(|(idx, input)| DataTestCase {
             name: TestNameWithDefault::name(&input),
             line: index[idx].line(),
-            testfn: Box::new(move || testfn.invoke(input)),
+            testfn: Box::new(move || testfn(input)),
         })
         .collect()
 }

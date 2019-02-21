@@ -220,23 +220,27 @@ pub fn files(
 
     // Adding `#[allow(unused_attributes)]` to `#orig_func` to allow `#[ignore]` attribute
     let output = quote! {
-      #[test_case]
-      static #desc_ident: ::datatest::FilesTestDesc = ::datatest::FilesTestDesc {
-        name: concat!(module_path!(), "::", #func_name_str),
-        ignore: #ignore,
-        root: #root,
-        params: &[#(#params),*],
-        pattern: #pattern_idx,
-        ignorefn: #ignore_func_ref,
-        testfn: #trampoline_func_ident,
-      };
+        #[test_case]
+        #[automatically_derived]
+        #[allow(non_upper_case_globals)]
+        static #desc_ident: ::datatest::FilesTestDesc = ::datatest::FilesTestDesc {
+            name: concat!(module_path!(), "::", #func_name_str),
+            ignore: #ignore,
+            root: #root,
+            params: &[#(#params),*],
+            pattern: #pattern_idx,
+            ignorefn: #ignore_func_ref,
+            testfn: #trampoline_func_ident,
+        };
 
-      fn #trampoline_func_ident(paths_arg: &[::std::path::PathBuf]) {
-        let result = #orig_func_name(#(#invoke_args),*);
-        datatest::assert_test_result(result);
-      }
+        #[automatically_derived]
+        #[allow(non_snake_case)]
+        fn #trampoline_func_ident(paths_arg: &[::std::path::PathBuf]) {
+            let result = #orig_func_name(#(#invoke_args),*);
+            datatest::assert_test_result(result);
+        }
 
-      #func_item
+        #func_item
     };
     output.into()
 }
@@ -298,26 +302,36 @@ pub fn data(
         Some(FnArg::Captured(ArgCaptured { ty, .. })) => Some(ty),
         _ => None,
     };
+    let (ref_token, ty) = match ty {
+        Some(syn::Type::Reference(type_ref)) => (quote!(&), Some(type_ref.elem.as_ref())),
+        _ => (TokenStream::new(), ty),
+    };
 
     let output = quote! {
-      #[test_case]
-      static #desc_ident: ::datatest::DataTestDesc = ::datatest::DataTestDesc {
-        name: concat!(module_path!(), "::", #func_name_str),
-        ignore: #ignore,
-        root: #root,
-        describefn: #describe_func_ident,
-      };
+        #[test_case]
+        #[automatically_derived]
+        #[allow(non_upper_case_globals)]
+        static #desc_ident: ::datatest::DataTestDesc = ::datatest::DataTestDesc {
+            name: concat!(module_path!(), "::", #func_name_str),
+            ignore: #ignore,
+            root: #root,
+            describefn: #describe_func_ident,
+        };
 
-      fn #trampoline_func_ident(arg: #ty) {
-        let result = #orig_func_ident(arg);
-        datatest::assert_test_result(result);
-      }
+        #[automatically_derived]
+        #[allow(non_snake_case)]
+        fn #trampoline_func_ident(arg: #ty) {
+            let result = #orig_func_ident(#ref_token arg);
+            datatest::assert_test_result(result);
+        }
 
-      fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCase> {
-        ::datatest::describe(input, #trampoline_func_ident as fn(#ty))
-      }
+        #[automatically_derived]
+        #[allow(non_snake_case)]
+        fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCase> {
+            ::datatest::describe(input, #trampoline_func_ident)
+        }
 
-      #func_item
+        #func_item
     };
     output.into()
 }
