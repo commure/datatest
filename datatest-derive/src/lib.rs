@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::Comma;
-use syn::{ArgCaptured, FnArg, Ident, ItemFn, Pat};
+use syn::token::{Comma, Underscore};
+use syn::{ArgCaptured, FnArg, Ident, ItemFn, Pat, Type, TypeInfer};
 
 type Error = syn::parse::Error;
 
@@ -221,6 +221,7 @@ pub fn files(
     // Adding `#[allow(unused_attributes)]` to `#orig_func` to allow `#[ignore]` attribute
     let output = quote! {
       #[test_case]
+      #[allow(non_upper_case_globals, non_snake_case)]
       static #desc_ident: ::datatest::FilesTestDesc = ::datatest::FilesTestDesc {
         name: concat!(module_path!(), "::", #func_name_str),
         ignore: #ignore,
@@ -231,6 +232,7 @@ pub fn files(
         testfn: #trampoline_func_ident,
       };
 
+      #[allow(non_upper_case_globals, non_snake_case)]
       fn #trampoline_func_ident(paths_arg: &[::std::path::PathBuf]) {
         let result = #orig_func_name(#(#invoke_args),*);
         datatest::assert_test_result(result);
@@ -298,9 +300,17 @@ pub fn data(
         Some(FnArg::Captured(ArgCaptured { ty, .. })) => Some(ty),
         _ => None,
     };
+    let underscore_token = Underscore { spans: [ty.span()] };
+    let base_ty = ty
+        .and_then(|ty| match ty {
+            Type::Reference(reference) => Some(reference.elem.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| Box::new(Type::Infer(TypeInfer { underscore_token })));
 
     let output = quote! {
       #[test_case]
+      #[allow(non_upper_case_globals, non_snake_case)]
       static #desc_ident: ::datatest::DataTestDesc = ::datatest::DataTestDesc {
         name: concat!(module_path!(), "::", #func_name_str),
         ignore: #ignore,
@@ -308,13 +318,15 @@ pub fn data(
         describefn: #describe_func_ident,
       };
 
+      #[allow(non_upper_case_globals, non_snake_case)]
       fn #trampoline_func_ident(arg: #ty) {
         let result = #orig_func_ident(arg);
         datatest::assert_test_result(result);
       }
 
-      fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCase> {
-        ::datatest::describe(input, #trampoline_func_ident as fn(#ty))
+      #[allow(non_upper_case_globals, non_snake_case)]
+      fn #describe_func_ident<'de>(input: &'de str) -> Vec<::datatest::DataTestCase> {
+        ::datatest::describe::<#base_ty, _>(input, #trampoline_func_ident as fn(#ty))
       }
 
       #func_item

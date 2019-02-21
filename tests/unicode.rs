@@ -4,7 +4,6 @@
 
 use serde::Deserialize;
 use std::fmt;
-use std::path::Path;
 
 #[datatest::files("tests/test-cases", {
   // Pattern is defined via `in` operator. Every file from the `directory` above will be matched
