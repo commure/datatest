@@ -159,3 +159,12 @@ impl fmt::Display for GreeterTestCaseNamed {
 fn data_test_name_and_line(data: &GreeterTestCaseNamed) {
     assert_eq!(data.expected, format!("Hi, {}!", data.name));
 }
+
+
+/// Can also take string inputs
+#[datatest::data("tests/strings.yaml")]
+#[test]
+fn data_test_string(data: String) {
+    let half = data.len() / 2;
+    assert_eq!(data[0..half], data[half..]);
+}

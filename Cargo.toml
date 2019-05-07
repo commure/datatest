@@ -1,6 +1,6 @@
 [package]
 name = "datatest"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
@@ -11,7 +11,7 @@ Data-driven tests in Rust
 """
 
 [dependencies]
-datatest-derive = { path = "datatest-derive", version = "0.3.0" }
+datatest-derive = { path = "datatest-derive", version = "0.3.1" }
 regex = "1.0.0"
 walkdir = "2.1.4"
 serde = "1.0.84"

@@ -115,6 +115,9 @@ fn index_cases(source: &str) -> Vec<Marker> {
             Event::StreamEnd => {
                 break;
             }
+            Event::Scalar(_, _, _, _) if depth == 1 => {
+                index.push(marker);
+            }
             Event::MappingStart(_idx) if depth == 1 => {
                 index.push(marker);
                 depth += 1;
