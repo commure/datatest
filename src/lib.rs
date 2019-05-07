@@ -117,11 +117,13 @@ mod files;
 mod runner;
 
 #[doc(hidden)]
-pub use crate::data::{describe, DataTestCase, DataTestDesc};
+pub use crate::data::{describe_bench, describe_test, DataTestCase, DataTestDesc};
 #[doc(hidden)]
-pub use crate::files::{DeriveArg, FilesTestDesc, TakeArg};
+pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
 #[doc(hidden)]
 pub use crate::runner::{assert_test_result, runner};
+#[doc(hidden)]
+pub use crate::test::Bencher;
 
 #[doc(hidden)]
 pub use datatest_derive::{data, files};

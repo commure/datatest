@@ -2,6 +2,14 @@
 use std::borrow::Borrow;
 use std::path::{Path, PathBuf};
 
+/// Used internally for `#[datatest::files(..)]` tests to distinguish regular tests versus benchmark
+/// tests.
+#[doc(hidden)]
+pub enum FilesTestFn {
+    TestFn(fn(&[PathBuf])),
+    BenchFn(fn(&mut test::Bencher, &[PathBuf])),
+}
+
 /// Descriptor used internally for `#[datatest::files(..)]` tests.
 #[doc(hidden)]
 pub struct FilesTestDesc {
@@ -11,7 +19,7 @@ pub struct FilesTestDesc {
     pub params: &'static [&'static str],
     pub pattern: usize,
     pub ignorefn: Option<fn(&Path) -> bool>,
-    pub testfn: fn(&[PathBuf]),
+    pub testfn: FilesTestFn,
 }
 
 /// Trait defining conversion into a function argument. We use it to convert discovered paths

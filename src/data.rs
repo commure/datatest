@@ -1,10 +1,11 @@
 //! Support module for `#[datatest::data(..)]`
 use serde::de::DeserializeOwned;
 use std::boxed::FnBox;
+use test::TDynBenchFn;
 use yaml_rust::parser::Event;
 use yaml_rust::scanner::Marker;
 
-/// Descriptor used internally for `#[datatest::files(..)]` tests.
+/// Descriptor used internally for `#[datatest::data(..)]` tests.
 #[doc(hidden)]
 pub struct DataTestDesc {
     pub name: &'static str,
@@ -13,11 +14,18 @@ pub struct DataTestDesc {
     pub describefn: fn(&str) -> Vec<DataTestCase>,
 }
 
+/// Used internally for `#[datatest::data(..)]` tests.
+#[doc(hidden)]
+pub enum DataTestFn {
+    TestFn(Box<FnBox() + Send + 'static>),
+    BenchFn(Box<TDynBenchFn + 'static>),
+}
+
 #[doc(hidden)]
 pub struct DataTestCase {
     pub name: Option<String>,
     pub line: usize,
-    pub testfn: Box<FnBox() + Send + 'static>,
+    pub testfn: DataTestFn,
 }
 
 /// Trait abstracting two scenarios: test case implementing [`ToString`] and test case not
@@ -42,7 +50,7 @@ impl<T: ToString> TestNameWithDefault for T {
 }
 
 #[doc(hidden)]
-pub fn describe<T>(source: &str, testfn: fn(T)) -> Vec<DataTestCase>
+pub fn describe_test<T>(source: &str, testfn: fn(T)) -> Vec<DataTestCase>
 where
     T: DeserializeOwned + TestNameWithDefault + Send + 'static,
 {
@@ -57,7 +65,41 @@ where
         .map(|(idx, input)| DataTestCase {
             name: TestNameWithDefault::name(&input),
             line: index[idx].line(),
-            testfn: Box::new(move || testfn(input)),
+            testfn: DataTestFn::TestFn(Box::new(move || testfn(input))),
+        })
+        .collect()
+}
+
+struct DataBenchFn<T>(fn(&mut test::Bencher, T), T)
+where
+    T: Send + Clone;
+
+impl<T> test::TDynBenchFn for DataBenchFn<T>
+where
+    T: Send + Clone,
+{
+    fn run(&self, harness: &mut test::Bencher) {
+        (self.0)(harness, self.1.clone())
+    }
+}
+
+#[doc(hidden)]
+pub fn describe_bench<T>(source: &str, benchfn: fn(&mut test::Bencher, T)) -> Vec<DataTestCase>
+where
+    T: DeserializeOwned + TestNameWithDefault + Clone + Send + 'static,
+{
+    let index = index_cases(source);
+    let cases: Vec<T> = serde_yaml::from_str(source).unwrap();
+    assert_eq!(index.len(), cases.len(), "index does not match test cases");
+
+    // FIXME: crash if nothing is found!
+    cases
+        .into_iter()
+        .enumerate()
+        .map(|(idx, input)| DataTestCase {
+            name: TestNameWithDefault::name(&input),
+            line: index[idx].line(),
+            testfn: DataTestFn::BenchFn(Box::new(DataBenchFn(benchfn, input))),
         })
         .collect()
 }

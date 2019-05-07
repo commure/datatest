@@ -1,5 +1,5 @@
-use crate::data::DataTestDesc;
-use crate::files::FilesTestDesc;
+use crate::data::{DataTestDesc, DataTestFn};
+use crate::files::{FilesTestDesc, FilesTestFn};
 use crate::test::{ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
 
@@ -74,6 +74,14 @@ fn iterate_directory(path: &Path) -> impl Iterator<Item = PathBuf> {
         .map(|entry| entry.path().to_path_buf())
 }
 
+struct FilesBenchFn(fn(&mut test::Bencher, &[PathBuf]), Vec<PathBuf>);
+
+impl test::TDynBenchFn for FilesBenchFn {
+    fn run(&self, harness: &mut test::Bencher) {
+        (self.0)(harness, &self.1)
+    }
+}
+
 /// Generate standard test descriptors ([`test::TestDescAndFn`]) from the descriptor of
 /// `#[datatest::files(..)]`.
 ///
@@ -108,11 +116,17 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
             }
 
             let test_name = derive_test_name(&root, &path, desc.name);
-            let testfn = desc.testfn;
             let ignore = desc.ignore
                 || desc
                     .ignorefn
                     .map_or(false, |ignore_func| ignore_func(&path));
+
+            let testfn = match desc.testfn {
+                FilesTestFn::TestFn(testfn) => TestFn::DynTestFn(Box::new(move || testfn(&paths))),
+                FilesTestFn::BenchFn(benchfn) => {
+                    TestFn::DynBenchFn(Box::new(FilesBenchFn(benchfn, paths)))
+                }
+            };
 
             // Generate a standard test descriptor
             let desc = TestDescAndFn {
@@ -122,7 +136,7 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     should_panic: ShouldPanic::No,
                     allow_fail: false,
                 },
-                testfn: TestFn::DynTestFn(Box::new(move || testfn(&paths))),
+                testfn,
             };
 
             rendered.push(desc);
@@ -147,13 +161,17 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
     for case in cases {
         // FIXME: use name provided in `case`...
 
-        let testfn = case.testfn;
-
         let case_name = if let Some(n) = case.name {
             format!("{}::{}::{} (line {})", prefix_name, desc.root, n, case.line)
         } else {
             format!("{}::{}::line {}", prefix_name, desc.root, case.line)
         };
+
+        let testfn = match case.testfn {
+            DataTestFn::TestFn(testfn) => TestFn::DynTestFn(testfn),
+            DataTestFn::BenchFn(benchfn) => TestFn::DynBenchFn(benchfn),
+        };
+
         // Generate a standard test descriptor
         let desc = TestDescAndFn {
             desc: TestDesc {
@@ -162,7 +180,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 should_panic: ShouldPanic::No,
                 allow_fail: false,
             },
-            testfn: TestFn::DynTestFn(testfn),
+            testfn,
         };
 
         rendered.push(desc);

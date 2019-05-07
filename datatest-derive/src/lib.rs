@@ -149,7 +149,8 @@ pub fn files(
         func_item.ident.span(),
     );
 
-    let ignore = handle_common_attrs(&mut func_item);
+    let info = handle_common_attrs(&mut func_item);
+    let ignore = info.ignore;
 
     let root = args.root;
     let mut pattern_idx = None;
@@ -163,13 +164,23 @@ pub fn files(
     // 2. For each argument we collect piece of code to create argument from the `&[PathBuf]` slice
     // given to us by the test runner.
     // 3. Capture the index of the argument corresponding to the "pattern" mapping
-    for (idx, arg) in func_item.decl.inputs.iter().enumerate() {
+    for (mut idx, arg) in func_item.decl.inputs.iter().enumerate() {
         match arg {
             FnArg::Captured(ArgCaptured {
                 pat: Pat::Ident(pat_ident),
                 ty,
                 ..
             }) => {
+                if info.bench {
+                    if idx == 0 {
+                        // FIXME: verify is Bencher!
+                        invoke_args.push(quote!(#pat_ident));
+                        continue;
+                    } else {
+                        idx -= 1;
+                    }
+                }
+
                 if let Some(arg) = args.args.get(&pat_ident.ident) {
                     if arg.is_pattern {
                         if pattern_idx.is_some() {
@@ -183,8 +194,8 @@ pub fn files(
 
                     params.push(arg.value.value());
                     invoke_args.push(quote! {
-            ::datatest::TakeArg::take(&mut <#ty as ::datatest::DeriveArg>::derive(&paths_arg[#idx]))
-          })
+                        ::datatest::TakeArg::take(&mut <#ty as ::datatest::DeriveArg>::derive(&paths_arg[#idx]))
+                    })
                 } else {
                     return Error::new(pat_ident.span(), "mapping is not defined for the argument")
                         .to_compile_error()
@@ -218,6 +229,12 @@ pub fn files(
     // So we can invoke original function from the trampoline function
     let orig_func_name = &func_item.ident;
 
+    let (kind, bencher_param) = if info.bench {
+        (quote!(BenchFn), quote!(bencher: &mut ::datatest::Bencher,))
+    } else {
+        (quote!(TestFn), quote!())
+    };
+
     // Adding `#[allow(unused_attributes)]` to `#orig_func` to allow `#[ignore]` attribute
     let output = quote! {
         #[test_case]
@@ -230,12 +247,12 @@ pub fn files(
             params: &[#(#params),*],
             pattern: #pattern_idx,
             ignorefn: #ignore_func_ref,
-            testfn: #trampoline_func_ident,
+            testfn: ::datatest::FilesTestFn::#kind(#trampoline_func_ident),
         };
 
         #[automatically_derived]
         #[allow(non_snake_case)]
-        fn #trampoline_func_ident(paths_arg: &[::std::path::PathBuf]) {
+        fn #trampoline_func_ident(#bencher_param paths_arg: &[::std::path::PathBuf]) {
             let result = #orig_func_name(#(#invoke_args),*);
             datatest::assert_test_result(result);
         }
@@ -245,15 +262,29 @@ pub fn files(
     output.into()
 }
 
-fn handle_common_attrs(func: &mut ItemFn) -> bool {
+struct FuncInfo {
+    ignore: bool,
+    bench: bool,
+}
+
+fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
     // Remove #[test] attribute as we don't want standard test framework to handle it!
     // We allow #[test] to be used to improve IDE experience (namely, IntelliJ Rust), which would
     // only allow you to run test if it is marked with `#[test]`
-    let pos = func
+    let test_pos = func
         .attrs
         .iter()
         .position(|attr| attr.path.is_ident("test"));
-    if let Some(pos) = pos {
+    if let Some(pos) = test_pos {
+        func.attrs.remove(pos);
+    }
+
+    // Same for #[bench]
+    let bench_pos = func
+        .attrs
+        .iter()
+        .position(|attr| attr.path.is_ident("bench"));
+    if let Some(pos) = bench_pos {
         func.attrs.remove(pos);
     }
 
@@ -265,7 +296,10 @@ fn handle_common_attrs(func: &mut ItemFn) -> bool {
     if let Some(pos) = ignore_pos {
         func.attrs.remove(pos);
     }
-    ignore_pos.is_some()
+    FuncInfo {
+        ignore: ignore_pos.is_some(),
+        bench: bench_pos.is_some(),
+    }
 }
 
 #[proc_macro_attribute]
@@ -291,13 +325,21 @@ pub fn data(
         func_item.ident.span(),
     );
 
-    let ignore = handle_common_attrs(&mut func_item);
+    let info = handle_common_attrs(&mut func_item);
+    let ignore = info.ignore;
 
     // FIXME: check file exists!
 
     let orig_func_ident = &func_item.ident;
+    let mut args = func_item.decl.inputs.iter();
 
-    let arg = func_item.decl.inputs.iter().next();
+    if info.bench {
+        // Skip Bencher argument
+        // FIXME: verify it is &mut Bencher
+        args.next();
+    }
+
+    let arg = args.next();
     let ty = match arg {
         Some(FnArg::Captured(ArgCaptured { ty, .. })) => Some(ty),
         _ => None,
@@ -305,6 +347,16 @@ pub fn data(
     let (ref_token, ty) = match ty {
         Some(syn::Type::Reference(type_ref)) => (quote!(&), Some(type_ref.elem.as_ref())),
         _ => (TokenStream::new(), ty),
+    };
+
+    let (describe, bencher_param, bencher_arg) = if info.bench {
+        (
+            quote!(describe_bench),
+            quote!(bencher: &mut ::datatest::Bencher,),
+            quote!(bencher,),
+        )
+    } else {
+        (quote!(describe_test), quote!(), quote!())
     };
 
     let output = quote! {
@@ -320,15 +372,15 @@ pub fn data(
 
         #[automatically_derived]
         #[allow(non_snake_case)]
-        fn #trampoline_func_ident(arg: #ty) {
-            let result = #orig_func_ident(#ref_token arg);
+        fn #trampoline_func_ident(#bencher_param arg: #ty) {
+            let result = #orig_func_ident(#bencher_arg #ref_token arg);
             datatest::assert_test_result(result);
         }
 
         #[automatically_derived]
         #[allow(non_snake_case)]
         fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCase> {
-            ::datatest::describe(input, #trampoline_func_ident)
+            ::datatest::#describe(input, #trampoline_func_ident)
         }
 
         #func_item
