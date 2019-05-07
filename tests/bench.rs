@@ -4,7 +4,6 @@
 extern crate test;
 
 use serde::Deserialize;
-use std::path::Path;
 use test::Bencher;
 
 /// File-driven tests are defined via `#[files(...)]` attribute.

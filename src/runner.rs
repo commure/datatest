@@ -63,7 +63,7 @@ pub enum DatatestTestDesc<'a> {
 fn iterate_directory(path: &Path) -> impl Iterator<Item = PathBuf> {
     walkdir::WalkDir::new(path)
         .into_iter()
-        .map(|entry| entry.unwrap())
+        .map(Result::unwrap)
         .filter(|entry| {
             entry.file_type().is_file()
                 && entry
