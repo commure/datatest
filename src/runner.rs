@@ -168,7 +168,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
         };
 
         let testfn = match case.testfn {
-            DataTestFn::TestFn(testfn) => TestFn::DynTestFn(testfn),
+            DataTestFn::TestFn(testfn) => TestFn::DynTestFn(Box::new(|| testfn())),
             DataTestFn::BenchFn(benchfn) => TestFn::DynBenchFn(benchfn),
         };
 
