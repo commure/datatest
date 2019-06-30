@@ -1,3 +1,4 @@
+#![recursion_limit = "128"]
 #![deny(unused_must_use)]
 extern crate proc_macro;
 
@@ -379,7 +380,7 @@ pub fn data(
 
         #[automatically_derived]
         #[allow(non_snake_case)]
-        fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCase> {
+        fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCaseDesc<::datatest::DataTestFn>> {
             ::datatest::#describe(input, #trampoline_func_ident)
         }
 

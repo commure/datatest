@@ -160,11 +160,42 @@ fn data_test_name_and_line(data: &GreeterTestCaseNamed) {
     assert_eq!(data.expected, format!("Hi, {}!", data.name));
 }
 
-
 /// Can also take string inputs
 #[datatest::data("tests/strings.yaml")]
 #[test]
 fn data_test_string(data: String) {
     let half = data.len() / 2;
     assert_eq!(data[0..half], data[half..]);
+}
+
+// Experimental API: allow custom test cases
+
+struct StringTestCase {
+    input: String,
+    output: String,
+}
+
+impl ::datatest::DataTestCase for StringTestCase {
+    fn from_str(input: &str) -> Vec<::datatest::DataTestCaseDesc<Self>> {
+        let lines = input.lines().collect::<Vec<_>>();
+        lines
+            .chunks(2)
+            .enumerate()
+            .map(|(idx, line)| ::datatest::DataTestCaseDesc {
+                case: StringTestCase {
+                    input: line[0].to_string(),
+                    output: line[1].to_string(),
+                },
+                name: Some(line[0].to_string()),
+                location: format!("line {}", idx * 2),
+            })
+            .collect()
+    }
+}
+
+/// Can have custom deserialization for data tests
+#[datatest::data("tests/cases.txt")]
+#[test]
+fn data_test_custom(data: StringTestCase) {
+    assert_eq!(data.output, format!("Hello, {}!", data.input));
 }
