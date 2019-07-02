@@ -1,6 +1,5 @@
 #![feature(test)]
 #![feature(specialization)]
-#![feature(fnbox)]
 #![feature(termination_trait_lib)]
 //! Crate for supporting data-driven tests.
 //!

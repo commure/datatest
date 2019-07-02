@@ -223,7 +223,7 @@ fn adjust_for_test_name(opts: &mut crate::test::TestOpts, name: &str) {
 /// For regular tests, mapping is one-to-one, for our data driven tests, we generate as many
 /// descriptors as test cases we discovered.
 #[doc(hidden)]
-pub fn runner(tests: &[&TestDescriptor]) {
+pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
     let mut opts = match crate::test::parse_opts(&args) {
         Some(Ok(o)) => o,

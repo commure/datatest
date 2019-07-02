@@ -1,6 +1,5 @@
 //! Support module for `#[datatest::data(..)]`
 use serde::de::DeserializeOwned;
-use std::boxed::FnBox;
 use test::TDynBenchFn;
 use yaml_rust::parser::Event;
 use yaml_rust::scanner::Marker;
@@ -17,8 +16,8 @@ pub struct DataTestDesc {
 /// Used internally for `#[datatest::data(..)]` tests.
 #[doc(hidden)]
 pub enum DataTestFn {
-    TestFn(Box<FnBox() + Send + 'static>),
-    BenchFn(Box<TDynBenchFn + 'static>),
+    TestFn(Box<dyn FnOnce() + Send + 'static>),
+    BenchFn(Box<dyn TDynBenchFn + 'static>),
 }
 
 #[doc(hidden)]
