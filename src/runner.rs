@@ -156,15 +156,14 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
     let prefix_name = real_name(&desc.name);
 
-    let input = crate::read_to_string(Path::new(desc.root));
-    let cases = (desc.describefn)(&input);
+    let cases = (desc.describefn)();
     for case in cases {
         // FIXME: use name provided in `case`...
 
         let case_name = if let Some(n) = case.name {
-            format!("{}::{}::{} ({})", prefix_name, desc.root, n, case.location)
+            format!("{}::{} ({})", prefix_name, n, case.location)
         } else {
-            format!("{}::{}::{}", prefix_name, desc.root, case.location)
+            format!("{}::{}", prefix_name, case.location)
         };
 
         let testfn = match case.case {

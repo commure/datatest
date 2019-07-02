@@ -1,5 +1,6 @@
 //! Support module for `#[datatest::data(..)]`
 use serde::de::DeserializeOwned;
+use std::path::Path;
 use test::TDynBenchFn;
 use yaml_rust::parser::Event;
 use yaml_rust::scanner::Marker;
@@ -9,8 +10,7 @@ use yaml_rust::scanner::Marker;
 pub struct DataTestDesc {
     pub name: &'static str,
     pub ignore: bool,
-    pub root: &'static str,
-    pub describefn: fn(&str) -> Vec<DataTestCaseDesc<DataTestFn>>,
+    pub describefn: fn() -> Vec<DataTestCaseDesc<DataTestFn>>,
 }
 
 /// Used internally for `#[datatest::data(..)]` tests.
@@ -27,29 +27,25 @@ pub struct DataTestCaseDesc<T> {
     pub location: String,
 }
 
-pub trait DataTestCase: Sized + Send + 'static {
-    fn from_str(input: &str) -> Vec<DataTestCaseDesc<Self>>;
-}
+pub fn yaml<T: DeserializeOwned + TestNameWithDefault + Send + 'static>(
+    path: &str,
+) -> Vec<DataTestCaseDesc<T>> {
+    let input = std::fs::read_to_string(Path::new(path))
+        .unwrap_or_else(|_| panic!("cannot read file '{}'", path));
 
-impl<T> DataTestCase for T
-where
-    T: DeserializeOwned + TestNameWithDefault + Send + 'static,
-{
-    fn from_str(input: &str) -> Vec<DataTestCaseDesc<Self>> {
-        let index = index_cases(input);
-        let cases: Vec<T> = serde_yaml::from_str(input).unwrap();
-        assert_eq!(index.len(), cases.len(), "index does not match test cases");
+    let index = index_cases(&input);
+    let cases: Vec<T> = serde_yaml::from_str(&input).unwrap();
+    assert_eq!(index.len(), cases.len(), "index does not match test cases");
 
-        index
-            .into_iter()
-            .zip(cases)
-            .map(|(marker, case)| DataTestCaseDesc {
-                case,
-                name: TestNameWithDefault::name(&input),
-                location: format!("line {}", marker.line()),
-            })
-            .collect()
-    }
+    index
+        .into_iter()
+        .zip(cases)
+        .map(|(marker, case)| DataTestCaseDesc {
+            case,
+            name: TestNameWithDefault::name(&path),
+            location: format!("line {}", marker.line()),
+        })
+        .collect()
 }
 
 /// Trait abstracting two scenarios: test case implementing [`ToString`] and test case not
@@ -74,26 +70,7 @@ impl<T: ToString> TestNameWithDefault for T {
 }
 
 #[doc(hidden)]
-pub fn describe_test<T: DataTestCase>(
-    source: &str,
-    testfn: fn(T),
-) -> Vec<DataTestCaseDesc<DataTestFn>> {
-    let result = T::from_str(source)
-        .into_iter()
-        .map(|input| {
-            let case = input.case;
-            DataTestCaseDesc {
-                case: DataTestFn::TestFn(Box::new(move || testfn(case))),
-                name: input.name,
-                location: input.location,
-            }
-        })
-        .collect::<Vec<_>>();
-    assert!(!result.is_empty(), "no test cases were found!");
-    result
-}
-
-struct DataBenchFn<T>(fn(&mut test::Bencher, T), T)
+pub struct DataBenchFn<T>(pub fn(&mut test::Bencher, T), pub T)
 where
     T: Send + Clone;
 
@@ -104,23 +81,6 @@ where
     fn run(&self, harness: &mut test::Bencher) {
         (self.0)(harness, self.1.clone())
     }
-}
-
-#[doc(hidden)]
-pub fn describe_bench<T: DataTestCase + Clone>(
-    source: &str,
-    benchfn: fn(&mut test::Bencher, T),
-) -> Vec<DataTestCaseDesc<DataTestFn>> {
-    let result = T::from_str(source)
-        .into_iter()
-        .map(|input| DataTestCaseDesc {
-            case: DataTestFn::BenchFn(Box::new(DataBenchFn(benchfn, input.case))),
-            name: input.name,
-            location: input.location,
-        })
-        .collect::<Vec<_>>();
-    assert!(!result.is_empty(), "no test cases were found!");
-    result
 }
 
 /// Build an index from the YAML source to the location of each test case (top level array elements).

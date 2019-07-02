@@ -303,6 +303,26 @@ fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
     }
 }
 
+/// Parse `#[data(...)]` attribute arguments. It's either a function returning
+/// `Vec<datatest::DataTestCaseDesc<T>>` (where `T` is a test case type) or string literal, which
+/// is interpreted as `datatest::yaml("<path>")`
+enum DataTestArgs {
+    Literal(syn::LitStr),
+    Expression(syn::Expr),
+}
+
+/// See `syn` crate documentation / sources for more examples.
+impl Parse for DataTestArgs {
+    fn parse(input: ParseStream) -> ParseResult<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(syn::LitStr) {
+            input.parse::<syn::LitStr>().map(DataTestArgs::Literal)
+        } else {
+            input.parse::<syn::Expr>().map(DataTestArgs::Expression)
+        }
+    }
+}
+
 #[proc_macro_attribute]
 #[allow(clippy::needless_pass_by_value)]
 pub fn data(
@@ -310,7 +330,11 @@ pub fn data(
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let mut func_item = parse_macro_input!(func as ItemFn);
-    let root: syn::LitStr = parse_macro_input!(args as syn::LitStr);
+    let cases: DataTestArgs = parse_macro_input!(args as DataTestArgs);
+    let cases = match cases {
+        DataTestArgs::Literal(path) => quote!(datatest::yaml(#path)),
+        DataTestArgs::Expression(expr) => quote!(#expr),
+    };
 
     let func_name_str = func_item.ident.to_string();
     let desc_ident = Ident::new(
@@ -350,14 +374,18 @@ pub fn data(
         _ => (TokenStream::new(), ty),
     };
 
-    let (describe, bencher_param, bencher_arg) = if info.bench {
+    let (case_ctor, bencher_param, bencher_arg) = if info.bench {
         (
-            quote!(describe_bench),
+            quote!(::datatest::DataTestFn::BenchFn(Box::new(::datatest::DataBenchFn(#trampoline_func_ident, case)))),
             quote!(bencher: &mut ::datatest::Bencher,),
             quote!(bencher,),
         )
     } else {
-        (quote!(describe_test), quote!(), quote!())
+        (
+            quote!(::datatest::DataTestFn::TestFn(Box::new(move || #trampoline_func_ident(case)))),
+            quote!(),
+            quote!(),
+        )
     };
 
     let output = quote! {
@@ -367,7 +395,6 @@ pub fn data(
         static #desc_ident: ::datatest::DataTestDesc = ::datatest::DataTestDesc {
             name: concat!(module_path!(), "::", #func_name_str),
             ignore: #ignore,
-            root: #root,
             describefn: #describe_func_ident,
         };
 
@@ -380,8 +407,20 @@ pub fn data(
 
         #[automatically_derived]
         #[allow(non_snake_case)]
-        fn #describe_func_ident(input: &str) -> Vec<::datatest::DataTestCaseDesc<::datatest::DataTestFn>> {
-            ::datatest::#describe(input, #trampoline_func_ident)
+        fn #describe_func_ident() -> Vec<::datatest::DataTestCaseDesc<::datatest::DataTestFn>> {
+            let result = #cases
+                .into_iter()
+                .map(|input| {
+                    let case = input.case;
+                    ::datatest::DataTestCaseDesc {
+                        case: #case_ctor,
+                        name: input.name,
+                        location: input.location,
+                    }
+                })
+                .collect::<Vec<_>>();
+            assert!(!result.is_empty(), "no test cases were found!");
+            result
         }
 
         #func_item

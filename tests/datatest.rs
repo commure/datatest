@@ -168,6 +168,14 @@ fn data_test_string(data: String) {
     assert_eq!(data[0..half], data[half..]);
 }
 
+/// Can also use `::datatest::yaml` explicitly
+#[datatest::data(::datatest::yaml("tests/strings.yaml"))]
+#[test]
+fn data_test_yaml(data: String) {
+    let half = data.len() / 2;
+    assert_eq!(data[0..half], data[half..]);
+}
+
 // Experimental API: allow custom test cases
 
 struct StringTestCase {
@@ -175,26 +183,25 @@ struct StringTestCase {
     output: String,
 }
 
-impl ::datatest::DataTestCase for StringTestCase {
-    fn from_str(input: &str) -> Vec<::datatest::DataTestCaseDesc<Self>> {
-        let lines = input.lines().collect::<Vec<_>>();
-        lines
-            .chunks(2)
-            .enumerate()
-            .map(|(idx, line)| ::datatest::DataTestCaseDesc {
-                case: StringTestCase {
-                    input: line[0].to_string(),
-                    output: line[1].to_string(),
-                },
-                name: Some(line[0].to_string()),
-                location: format!("line {}", idx * 2),
-            })
-            .collect()
-    }
+fn load_test_cases(path: &str) -> Vec<::datatest::DataTestCaseDesc<StringTestCase>> {
+    let input = std::fs::read_to_string(path).unwrap();
+    let lines = input.lines().collect::<Vec<_>>();
+    lines
+        .chunks(2)
+        .enumerate()
+        .map(|(idx, line)| ::datatest::DataTestCaseDesc {
+            case: StringTestCase {
+                input: line[0].to_string(),
+                output: line[1].to_string(),
+            },
+            name: Some(line[0].to_string()),
+            location: format!("line {}", idx * 2),
+        })
+        .collect()
 }
 
 /// Can have custom deserialization for data tests
-#[datatest::data("tests/cases.txt")]
+#[datatest::data(load_test_cases("tests/cases.txt"))]
 #[test]
 fn data_test_custom(data: StringTestCase) {
     assert_eq!(data.output, format!("Hello, {}!", data.input));

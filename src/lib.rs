@@ -116,7 +116,7 @@ mod files;
 mod runner;
 
 #[doc(hidden)]
-pub use crate::data::{describe_bench, describe_test, DataTestDesc, DataTestFn};
+pub use crate::data::{DataBenchFn, DataTestDesc, DataTestFn};
 #[doc(hidden)]
 pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
 #[doc(hidden)]
@@ -129,7 +129,7 @@ pub use datatest_derive::{data, files};
 
 /// Experimental functionality.
 #[doc(hidden)]
-pub use crate::data::{DataTestCase, DataTestCaseDesc};
+pub use crate::data::{yaml, DataTestCaseDesc};
 
 use std::fs::File;
 use std::io::{BufReader, Read};
