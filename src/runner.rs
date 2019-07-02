@@ -162,12 +162,12 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
         // FIXME: use name provided in `case`...
 
         let case_name = if let Some(n) = case.name {
-            format!("{}::{}::{} (line {})", prefix_name, desc.root, n, case.line)
+            format!("{}::{}::{} ({})", prefix_name, desc.root, n, case.location)
         } else {
-            format!("{}::{}::line {}", prefix_name, desc.root, case.line)
+            format!("{}::{}::{}", prefix_name, desc.root, case.location)
         };
 
-        let testfn = match case.testfn {
+        let testfn = match case.case {
             DataTestFn::TestFn(testfn) => TestFn::DynTestFn(Box::new(|| testfn())),
             DataTestFn::BenchFn(benchfn) => TestFn::DynBenchFn(benchfn),
         };

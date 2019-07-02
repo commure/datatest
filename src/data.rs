@@ -10,7 +10,7 @@ pub struct DataTestDesc {
     pub name: &'static str,
     pub ignore: bool,
     pub root: &'static str,
-    pub describefn: fn(&str) -> Vec<DataTestCase>,
+    pub describefn: fn(&str) -> Vec<DataTestCaseDesc<DataTestFn>>,
 }
 
 /// Used internally for `#[datatest::data(..)]` tests.
@@ -20,11 +20,36 @@ pub enum DataTestFn {
     BenchFn(Box<dyn TDynBenchFn + 'static>),
 }
 
-#[doc(hidden)]
-pub struct DataTestCase {
+/// Descriptor of the data test case where the type of the test case data is `T`.
+pub struct DataTestCaseDesc<T> {
+    pub case: T,
     pub name: Option<String>,
-    pub line: usize,
-    pub testfn: DataTestFn,
+    pub location: String,
+}
+
+pub trait DataTestCase: Sized + Send + 'static {
+    fn from_str(input: &str) -> Vec<DataTestCaseDesc<Self>>;
+}
+
+impl<T> DataTestCase for T
+where
+    T: DeserializeOwned + TestNameWithDefault + Send + 'static,
+{
+    fn from_str(input: &str) -> Vec<DataTestCaseDesc<Self>> {
+        let index = index_cases(input);
+        let cases: Vec<T> = serde_yaml::from_str(input).unwrap();
+        assert_eq!(index.len(), cases.len(), "index does not match test cases");
+
+        index
+            .into_iter()
+            .zip(cases)
+            .map(|(marker, case)| DataTestCaseDesc {
+                case,
+                name: TestNameWithDefault::name(&input),
+                location: format!("line {}", marker.line()),
+            })
+            .collect()
+    }
 }
 
 /// Trait abstracting two scenarios: test case implementing [`ToString`] and test case not
@@ -49,24 +74,23 @@ impl<T: ToString> TestNameWithDefault for T {
 }
 
 #[doc(hidden)]
-pub fn describe_test<T>(source: &str, testfn: fn(T)) -> Vec<DataTestCase>
-where
-    T: DeserializeOwned + TestNameWithDefault + Send + 'static,
-{
-    let index = index_cases(source);
-    let cases: Vec<T> = serde_yaml::from_str(source).unwrap();
-    assert_eq!(index.len(), cases.len(), "index does not match test cases");
-
-    // FIXME: crash if nothing is found!
-    cases
+pub fn describe_test<T: DataTestCase>(
+    source: &str,
+    testfn: fn(T),
+) -> Vec<DataTestCaseDesc<DataTestFn>> {
+    let result = T::from_str(source)
         .into_iter()
-        .enumerate()
-        .map(|(idx, input)| DataTestCase {
-            name: TestNameWithDefault::name(&input),
-            line: index[idx].line(),
-            testfn: DataTestFn::TestFn(Box::new(move || testfn(input))),
+        .map(|input| {
+            let case = input.case;
+            DataTestCaseDesc {
+                case: DataTestFn::TestFn(Box::new(move || testfn(case))),
+                name: input.name,
+                location: input.location,
+            }
         })
-        .collect()
+        .collect::<Vec<_>>();
+    assert!(!result.is_empty(), "no test cases were found!");
+    result
 }
 
 struct DataBenchFn<T>(fn(&mut test::Bencher, T), T)
@@ -83,24 +107,20 @@ where
 }
 
 #[doc(hidden)]
-pub fn describe_bench<T>(source: &str, benchfn: fn(&mut test::Bencher, T)) -> Vec<DataTestCase>
-where
-    T: DeserializeOwned + TestNameWithDefault + Clone + Send + 'static,
-{
-    let index = index_cases(source);
-    let cases: Vec<T> = serde_yaml::from_str(source).unwrap();
-    assert_eq!(index.len(), cases.len(), "index does not match test cases");
-
-    // FIXME: crash if nothing is found!
-    cases
+pub fn describe_bench<T: DataTestCase + Clone>(
+    source: &str,
+    benchfn: fn(&mut test::Bencher, T),
+) -> Vec<DataTestCaseDesc<DataTestFn>> {
+    let result = T::from_str(source)
         .into_iter()
-        .enumerate()
-        .map(|(idx, input)| DataTestCase {
-            name: TestNameWithDefault::name(&input),
-            line: index[idx].line(),
-            testfn: DataTestFn::BenchFn(Box::new(DataBenchFn(benchfn, input))),
+        .map(|input| DataTestCaseDesc {
+            case: DataTestFn::BenchFn(Box::new(DataBenchFn(benchfn, input.case))),
+            name: input.name,
+            location: input.location,
         })
-        .collect()
+        .collect::<Vec<_>>();
+    assert!(!result.is_empty(), "no test cases were found!");
+    result
 }
 
 /// Build an index from the YAML source to the location of each test case (top level array elements).
