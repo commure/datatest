@@ -41,8 +41,8 @@ pub fn yaml<T: DeserializeOwned + TestNameWithDefault + Send + 'static>(
         .into_iter()
         .zip(cases)
         .map(|(marker, case)| DataTestCaseDesc {
+            name: TestNameWithDefault::name(&case),
             case,
-            name: TestNameWithDefault::name(&path),
             location: format!("line {}", marker.line()),
         })
         .collect()
