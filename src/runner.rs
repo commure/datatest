@@ -221,6 +221,33 @@ fn adjust_for_test_name(opts: &mut crate::test::TestOpts, name: &str) {
 /// ([DataTestDesc]) into definitions understood by Rust test framework ([TestDescAndFn] structs).
 /// For regular tests, mapping is one-to-one, for our data driven tests, we generate as many
 /// descriptors as test cases we discovered.
+///
+/// # Notes
+/// So, how does it work? We use a nightly-only feature of [custom_test_frameworks] that allows you
+/// to annotate arbitrary function, const or static with `#[test_case]`. Attribute. Then, Rust
+/// compiler would transform the code to pass all the discovered test cases as one big slice to the
+/// test runner.
+///
+/// However, we also want to support standard `#[test]` without disrupting them as much as possible.
+/// Internally, compiler would also desugar them to the `#[test_case]` attribute, but the type of
+/// the descriptor struct would be a predefined type of `test::TestDescAndFn`. This type, however,
+/// cannot represent all the additional information we need for our tests.
+///
+/// So we do a little trick here: we rely on the fact that compiler generates code exactly like in
+/// the following snippet:
+///
+/// ```ignore
+/// test::test_main_static(&[&__test_reexports::some::test1, &__test_reexports::some::test2])
+/// ```
+///
+/// Then, we implement `TestDescriptor` trait for the standard test descriptor struct, which would
+/// generate trait objects for these structs and pass a trait object instead. We do the same for
+/// our structs and our trait object allows us to return the reference wrapped into an enum
+/// distinguishing between three different test variants (standard tests, "files" tests and "data"
+/// tests).
+///
+/// [custom_test_frameworks]: https://github.com/rust-lang/rust/blob/master/src/doc/unstable-book/src/language-features/custom-test-frameworks.md
+/// See <https://blog.jrenner.net/rust/testing/2018/07/19/test-in-2018.html>
 #[doc(hidden)]
 pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
