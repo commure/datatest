@@ -1,3 +1,4 @@
+#![cfg(feature = "nightly")]
 #![feature(non_ascii_idents)]
 #![feature(custom_test_frameworks)]
 #![test_runner(datatest::runner)]

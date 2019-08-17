@@ -2,6 +2,7 @@ use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
 use crate::test::{ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     let relative = path.strip_prefix(root).unwrap_or_else(|_| {
@@ -167,7 +168,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
         };
 
         let testfn = match case.case {
-            DataTestFn::TestFn(testfn) => TestFn::DynTestFn(Box::new(|| testfn())),
+            DataTestFn::TestFn(testfn) => TestFn::DynTestFn(testfn),
             DataTestFn::BenchFn(benchfn) => TestFn::DynBenchFn(benchfn),
         };
 
@@ -217,6 +218,27 @@ fn adjust_for_test_name(opts: &mut crate::test::TestOpts, name: &str) {
     }
 }
 
+pub struct RegistrationNode {
+    pub descriptor: &'static dyn TestDescriptor,
+    pub next: Option<&'static RegistrationNode>,
+}
+
+static REGISTRY: AtomicPtr<RegistrationNode> = AtomicPtr::new(std::ptr::null_mut());
+
+pub fn register(new: &mut RegistrationNode) {
+    let reg = &REGISTRY;
+    let mut current = reg.load(Ordering::SeqCst);
+    loop {
+        let previous = reg.compare_and_swap(current, new, Ordering::SeqCst);
+        if previous == current {
+            new.next = unsafe { previous.as_ref() };
+            return;
+        } else {
+            current = previous;
+        }
+    }
+}
+
 /// Custom test runner. Expands test definitions given in the format our test framework understands
 /// ([DataTestDesc]) into definitions understood by Rust test framework ([TestDescAndFn] structs).
 /// For regular tests, mapping is one-to-one, for our data driven tests, we generate as many
@@ -259,23 +281,14 @@ pub fn runner(tests: &[&dyn TestDescriptor]) {
 
     let mut rendered: Vec<TestDescAndFn> = Vec::new();
     for input in tests.iter() {
-        match input.as_datatest_desc() {
-            DatatestTestDesc::Test(test) => {
-                // Make a copy as we cannot take ownership
-                rendered.push(TestDescAndFn {
-                    desc: test.desc.clone(),
-                    testfn: clone_testfn(&test.testfn),
-                })
-            }
-            DatatestTestDesc::FilesTest(files) => {
-                render_files_test(files, &mut rendered);
-                adjust_for_test_name(&mut opts, &files.name);
-            }
-            DatatestTestDesc::DataTest(data) => {
-                render_data_test(data, &mut rendered);
-                adjust_for_test_name(&mut opts, &data.name);
-            }
-        }
+        render_test_descriptor(*input, &mut opts, &mut rendered);
+    }
+
+    // Gather tests registered via our registry (stable channel)
+    let mut current = unsafe { REGISTRY.load(Ordering::SeqCst).as_ref() };
+    while let Some(node) = current {
+        render_test_descriptor(node.descriptor, &mut opts, &mut rendered);
+        current = node.next;
     }
 
     // Run tests via standard runner!
@@ -286,13 +299,51 @@ pub fn runner(tests: &[&dyn TestDescriptor]) {
     }
 }
 
+fn render_test_descriptor(
+    input: &dyn TestDescriptor,
+    opts: &mut crate::test::TestOpts,
+    rendered: &mut Vec<TestDescAndFn>,
+) {
+    match input.as_datatest_desc() {
+        DatatestTestDesc::Test(test) => {
+            // Make a copy as we cannot take ownership
+            rendered.push(TestDescAndFn {
+                desc: test.desc.clone(),
+                testfn: clone_testfn(&test.testfn),
+            })
+        }
+        DatatestTestDesc::FilesTest(files) => {
+            render_files_test(files, rendered);
+            adjust_for_test_name(opts, &files.name);
+        }
+        DatatestTestDesc::DataTest(data) => {
+            render_data_test(data, rendered);
+            adjust_for_test_name(opts, &data.name);
+        }
+    }
+}
+
+pub trait Termination {
+    fn is_success(&self) -> bool;
+}
+
+impl Termination for () {
+    fn is_success(&self) -> bool {
+        true
+    }
+}
+
+impl<T, E> Termination for Result<T, E> {
+    fn is_success(&self) -> bool {
+        self.is_ok()
+    }
+}
+
 #[doc(hidden)]
-pub fn assert_test_result<T: std::process::Termination>(result: T) {
-    let code = result.report();
-    assert_eq!(
-        code, 0,
-        "the test returned a termination value with a non-zero status code ({}) \
-         which indicates a failure",
-        code
+pub fn assert_test_result<T: Termination>(result: T) {
+    assert!(
+        result.is_success(),
+        "the test returned a termination value with a non-zero status code (255) \
+         which indicates a failure"
     );
 }

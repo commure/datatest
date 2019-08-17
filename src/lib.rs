@@ -115,17 +115,28 @@ mod data;
 mod files;
 mod runner;
 
+/// Internal re-exports for the procedural macro to use.
 #[doc(hidden)]
-pub use crate::data::{DataBenchFn, DataTestDesc, DataTestFn};
-#[doc(hidden)]
-pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
-#[doc(hidden)]
-pub use crate::runner::{assert_test_result, runner};
-#[doc(hidden)]
-pub use crate::test::Bencher;
+pub mod __internal {
+    pub use crate::data::{DataBenchFn, DataTestDesc, DataTestFn};
+    pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
+    pub use crate::runner::assert_test_result;
+    pub use crate::test::Bencher;
+    pub use ctor::ctor;
+
+    // To maintain registry on stable channel
+    pub use crate::runner::{register, RegistrationNode};
+}
+
+pub use crate::runner::runner;
 
 #[doc(hidden)]
-pub use datatest_derive::{data, files};
+#[cfg(feature = "stable")]
+pub use datatest_derive::{data_stable as data, files_stable as files};
+
+#[doc(hidden)]
+#[cfg(feature = "nightly")]
+pub use datatest_derive::{data_nightly as data, files_nightly as files};
 
 /// Experimental functionality.
 #[doc(hidden)]
@@ -134,6 +145,23 @@ pub use crate::data::{yaml, DataTestCaseDesc};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
+
+/// `datatest` test harness entry point. Should be declared in the test module, like in the
+/// following snippet:
+/// ```rust,norun
+/// datatest::harness!();
+/// ```
+///
+/// Also, `harness` should be set to `false` for that test module in `Cargo.toml` (see [Configuring a target](https://doc.rust-lang.org/cargo/reference/manifest.html#configuring-a-target)).
+#[macro_export]
+macro_rules! harness {
+    () => {
+        #[cfg(test)]
+        fn main() {
+            ::datatest::runner(&[]);
+        }
+    };
+}
 
 /// Helper function used internally.
 fn read_to_string(path: &Path) -> String {
