@@ -134,5 +134,5 @@ additional terms or conditions.
 [Doc]: https://docs.rs/datatest
 [Doc Logo]: https://docs.rs/datatest/badge.svg
 
-[CI]: https://dev.azure.com/commure/datatest/_build/latest?definitionId=1&branchName=master
-[CI Logo]: https://dev.azure.com/commure/datatest/_apis/build/status/commure.sourcegen?branchName=master
+[CI]: https://dev.azure.com/commure/datatest/_build/latest?definitionId=3&branchName=master
+[CI Logo]: https://dev.azure.com/commure/datatest/_apis/build/status/commure.datatest?branchName=master
