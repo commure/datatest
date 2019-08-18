@@ -2,19 +2,14 @@
 #![deny(unused_must_use)]
 extern crate proc_macro;
 
-#[macro_use]
-extern crate syn;
-#[macro_use]
-extern crate quote;
-extern crate proc_macro2;
-
 use proc_macro2::{Span, TokenStream};
+use quote::quote;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{ArgCaptured, FnArg, Ident, ItemFn, Pat};
+use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Type};
 
 type Error = syn::parse::Error;
 
@@ -90,6 +85,29 @@ impl Parse for FilesTestArgs {
     }
 }
 
+enum Channel {
+    Stable,
+    Nightly,
+}
+
+/// Wrapper that turns on behavior that works on stable Rust.
+#[proc_macro_attribute]
+pub fn files_stable(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    files_internal(args, func, Channel::Stable)
+}
+
+/// Wrapper that turns on behavior that works only on nightly Rust.
+#[proc_macro_attribute]
+pub fn files_nightly(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    files_internal(args, func, Channel::Nightly)
+}
+
 /// Proc macro handling `#[files(...)]` syntax. This attribute defines rules for deriving
 /// test function arguments from file paths. There are two types of rules:
 /// 1. Pattern rule, `<arg_name> in "<regexp>"`
@@ -131,28 +149,22 @@ impl Parse for FilesTestArgs {
 /// I could have made this proc macro to handle these cases explicitly and generate a different
 /// code, but I decided to not add a complexity of type analysis to the proc macro and use traits
 /// instead. See `datatest::TakeArg` and `datatest::DeriveArg` to see how this mechanism works.
-#[proc_macro_attribute]
-#[allow(clippy::needless_pass_by_value)]
-pub fn files(
+fn files_internal(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
+    channel: Channel,
 ) -> proc_macro::TokenStream {
-    let mut func_item = parse_macro_input!(func as ItemFn);
+    let mut func_item: ItemFn = parse_macro_input!(func as ItemFn);
     let args: FilesTestArgs = parse_macro_input!(args as FilesTestArgs);
-
-    let func_name_str = func_item.ident.to_string();
-    let desc_ident = Ident::new(
-        &format!("__TEST_{}", func_item.ident),
-        func_item.ident.span(),
-    );
+    let info = handle_common_attrs(&mut func_item, false);
+    let func_ident = &func_item.sig.ident;
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
     let trampoline_func_ident = Ident::new(
-        &format!("__TEST_TRAMPOLINE_{}", func_item.ident),
-        func_item.ident.span(),
+        &format!("__TEST_TRAMPOLINE_{}", func_ident),
+        func_ident.span(),
     );
-
-    let info = handle_common_attrs(&mut func_item);
     let ignore = info.ignore;
-
     let root = args.root;
     let mut pattern_idx = None;
     let mut params: Vec<String> = Vec::new();
@@ -165,13 +177,9 @@ pub fn files(
     // 2. For each argument we collect piece of code to create argument from the `&[PathBuf]` slice
     // given to us by the test runner.
     // 3. Capture the index of the argument corresponding to the "pattern" mapping
-    for (mut idx, arg) in func_item.decl.inputs.iter().enumerate() {
-        match arg {
-            FnArg::Captured(ArgCaptured {
-                pat: Pat::Ident(pat_ident),
-                ty,
-                ..
-            }) => {
+    for (mut idx, arg) in func_item.sig.inputs.iter().enumerate() {
+        match match_arg(arg) {
+            Some((pat_ident, ty)) => {
                 if info.bench {
                     if idx == 0 {
                         // FIXME: verify is Bencher!
@@ -195,7 +203,7 @@ pub fn files(
 
                     params.push(arg.value.value());
                     invoke_args.push(quote! {
-                        ::datatest::TakeArg::take(&mut <#ty as ::datatest::DeriveArg>::derive(&paths_arg[#idx]))
+                        ::datatest::__internal::TakeArg::take(&mut <#ty as ::datatest::__internal::DeriveArg>::derive(&paths_arg[#idx]))
                     })
                 } else {
                     return Error::new(pat_ident.span(), "mapping is not defined for the argument")
@@ -203,7 +211,7 @@ pub fn files(
                         .into();
                 }
             }
-            _ => {
+            None => {
                 return Error::new(
                     arg.span(),
                     "unexpected argument; only simple argument types are allowed (`&str`, `String`, `&[u8]`, `Vec<u8>`, `&Path`, etc)",
@@ -227,35 +235,35 @@ pub fn files(
             .into();
     }
 
-    // So we can invoke original function from the trampoline function
-    let orig_func_name = &func_item.ident;
-
     let (kind, bencher_param) = if info.bench {
-        (quote!(BenchFn), quote!(bencher: &mut ::datatest::Bencher,))
+        (
+            quote!(BenchFn),
+            quote!(bencher: &mut ::datatest::__internal::Bencher,),
+        )
     } else {
         (quote!(TestFn), quote!())
     };
 
-    // Adding `#[allow(unused_attributes)]` to `#orig_func` to allow `#[ignore]` attribute
+    let registration = test_registration(channel, &desc_ident);
     let output = quote! {
-        #[test_case]
+        #registration
         #[automatically_derived]
         #[allow(non_upper_case_globals)]
-        static #desc_ident: ::datatest::FilesTestDesc = ::datatest::FilesTestDesc {
+        static #desc_ident: ::datatest::__internal::FilesTestDesc = ::datatest::__internal::FilesTestDesc {
             name: concat!(module_path!(), "::", #func_name_str),
             ignore: #ignore,
             root: #root,
             params: &[#(#params),*],
             pattern: #pattern_idx,
             ignorefn: #ignore_func_ref,
-            testfn: ::datatest::FilesTestFn::#kind(#trampoline_func_ident),
+            testfn: ::datatest::__internal::FilesTestFn::#kind(#trampoline_func_ident),
         };
 
         #[automatically_derived]
         #[allow(non_snake_case)]
         fn #trampoline_func_ident(#bencher_param paths_arg: &[::std::path::PathBuf]) {
-            let result = #orig_func_name(#(#invoke_args),*);
-            datatest::assert_test_result(result);
+            let result = #func_ident(#(#invoke_args),*);
+            ::datatest::__internal::assert_test_result(result);
         }
 
         #func_item
@@ -263,12 +271,30 @@ pub fn files(
     output.into()
 }
 
+fn match_arg(arg: &FnArg) -> Option<(&PatIdent, &Type)> {
+    if let FnArg::Typed(PatType { pat, ty, .. }) = arg {
+        if let Pat::Ident(pat_ident) = pat.as_ref() {
+            return Some((pat_ident, ty));
+        }
+    }
+    None
+}
+
+enum ShouldPanic {
+    No,
+    Yes,
+    YesWithMessage(String),
+}
+
 struct FuncInfo {
     ignore: bool,
     bench: bool,
+    should_panic: ShouldPanic,
 }
 
-fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
+/// Only allows certain attributes (`#[should_panic]`, for example) when used against a "regular"
+/// test `#[test]`.
+fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     // Remove #[test] attribute as we don't want standard test framework to handle it!
     // We allow #[test] to be used to improve IDE experience (namely, IntelliJ Rust), which would
     // only allow you to run test if it is marked with `#[test]`
@@ -297,10 +323,46 @@ fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
     if let Some(pos) = ignore_pos {
         func.attrs.remove(pos);
     }
+
+    let mut should_panic = ShouldPanic::No;
+    if regular_test {
+        // Regular tests support (on stable channel): allow `#[should_panic]`
+        let should_panic_pos = func
+            .attrs
+            .iter()
+            .position(|attr| attr.path.is_ident("should_panic"));
+        if let Some(pos) = should_panic_pos {
+            let attr = &func.attrs[pos];
+            should_panic = parse_should_panic(attr);
+            func.attrs.remove(pos);
+        }
+    }
+
     FuncInfo {
         ignore: ignore_pos.is_some(),
         bench: bench_pos.is_some(),
+        should_panic,
     }
+}
+
+fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
+    if let Some(meta) = attr.parse_meta().ok() {
+        if let syn::Meta::List(list) = meta {
+            for item in list.nested {
+                match item {
+                    syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
+                        if nv.path.is_ident("expected") =>
+                    {
+                        if let syn::Lit::Str(ref value) = nv.lit {
+                            return ShouldPanic::YesWithMessage(value.value());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    ShouldPanic::Yes
 }
 
 /// Parse `#[data(...)]` attribute arguments. It's either a function returning
@@ -323,40 +385,52 @@ impl Parse for DataTestArgs {
     }
 }
 
+/// Wrapper that turns on behavior that works on stable Rust.
 #[proc_macro_attribute]
-#[allow(clippy::needless_pass_by_value)]
-pub fn data(
+pub fn data_stable(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
+    data_internal(args, func, Channel::Stable)
+}
+
+/// Wrapper that turns on behavior that works only on nightly Rust.
+#[proc_macro_attribute]
+pub fn data_nightly(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    data_internal(args, func, Channel::Nightly)
+}
+
+fn data_internal(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+    channel: Channel,
+) -> proc_macro::TokenStream {
     let mut func_item = parse_macro_input!(func as ItemFn);
     let cases: DataTestArgs = parse_macro_input!(args as DataTestArgs);
+    let info = handle_common_attrs(&mut func_item, false);
     let cases = match cases {
         DataTestArgs::Literal(path) => quote!(datatest::yaml(#path)),
         DataTestArgs::Expression(expr) => quote!(#expr),
     };
+    let func_ident = &func_item.sig.ident;
 
-    let func_name_str = func_item.ident.to_string();
-    let desc_ident = Ident::new(
-        &format!("__TEST_{}", func_item.ident),
-        func_item.ident.span(),
-    );
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
     let describe_func_ident = Ident::new(
-        &format!("__TEST_DESCRIBE_{}", func_item.ident),
-        func_item.ident.span(),
+        &format!("__TEST_DESCRIBE_{}", func_ident),
+        func_ident.span(),
     );
     let trampoline_func_ident = Ident::new(
-        &format!("__TEST_TRAMPOLINE_{}", func_item.ident),
-        func_item.ident.span(),
+        &format!("__TEST_TRAMPOLINE_{}", func_ident),
+        func_ident.span(),
     );
 
-    let info = handle_common_attrs(&mut func_item);
     let ignore = info.ignore;
-
     // FIXME: check file exists!
-
-    let orig_func_ident = &func_item.ident;
-    let mut args = func_item.decl.inputs.iter();
+    let mut args = func_item.sig.inputs.iter();
 
     if info.bench {
         // Skip Bencher argument
@@ -366,7 +440,7 @@ pub fn data(
 
     let arg = args.next();
     let ty = match arg {
-        Some(FnArg::Captured(ArgCaptured { ty, .. })) => Some(ty),
+        Some(FnArg::Typed(PatType { ty, .. })) => Some(ty.as_ref()),
         _ => None,
     };
     let (ref_token, ty) = match ty {
@@ -376,23 +450,24 @@ pub fn data(
 
     let (case_ctor, bencher_param, bencher_arg) = if info.bench {
         (
-            quote!(::datatest::DataTestFn::BenchFn(Box::new(::datatest::DataBenchFn(#trampoline_func_ident, case)))),
-            quote!(bencher: &mut ::datatest::Bencher,),
+            quote!(::datatest::__internal::DataTestFn::BenchFn(Box::new(::datatest::__internal::DataBenchFn(#trampoline_func_ident, case)))),
+            quote!(bencher: &mut ::datatest::__internal::Bencher,),
             quote!(bencher,),
         )
     } else {
         (
-            quote!(::datatest::DataTestFn::TestFn(Box::new(move || #trampoline_func_ident(case)))),
+            quote!(::datatest::__internal::DataTestFn::TestFn(Box::new(move || #trampoline_func_ident(case)))),
             quote!(),
             quote!(),
         )
     };
 
+    let registration = test_registration(channel, &desc_ident);
     let output = quote! {
-        #[test_case]
+        #registration
         #[automatically_derived]
         #[allow(non_upper_case_globals)]
-        static #desc_ident: ::datatest::DataTestDesc = ::datatest::DataTestDesc {
+        static #desc_ident: ::datatest::__internal::DataTestDesc = ::datatest::__internal::DataTestDesc {
             name: concat!(module_path!(), "::", #func_name_str),
             ignore: #ignore,
             describefn: #describe_func_ident,
@@ -401,13 +476,13 @@ pub fn data(
         #[automatically_derived]
         #[allow(non_snake_case)]
         fn #trampoline_func_ident(#bencher_param arg: #ty) {
-            let result = #orig_func_ident(#bencher_arg #ref_token arg);
-            datatest::assert_test_result(result);
+            let result = #func_ident(#bencher_arg #ref_token arg);
+            ::datatest::__internal::assert_test_result(result);
         }
 
         #[automatically_derived]
         #[allow(non_snake_case)]
-        fn #describe_func_ident() -> Vec<::datatest::DataTestCaseDesc<::datatest::DataTestFn>> {
+        fn #describe_func_ident() -> Vec<::datatest::DataTestCaseDesc<::datatest::__internal::DataTestFn>> {
             let result = #cases
                 .into_iter()
                 .map(|input| {
@@ -425,5 +500,67 @@ pub fn data(
 
         #func_item
     };
+    output.into()
+}
+
+fn test_registration(channel: Channel, desc_ident: &syn::Ident) -> TokenStream {
+    match channel {
+        // On nightly, we rely on `custom_test_frameworks` feature
+        Channel::Nightly => quote!(#[test_case]),
+        // On stable, we use `ctor` crate to build a registry of all our tests
+        Channel::Stable => {
+            let registration_fn =
+                syn::Ident::new(&format!("{}__REGISTRATION", desc_ident), desc_ident.span());
+            let tokens = quote! {
+                #[allow(non_snake_case)]
+                #[datatest::__internal::ctor]
+                fn #registration_fn() {
+                    use ::datatest::__internal::RegistrationNode;
+                    static mut REGISTRATION: RegistrationNode = RegistrationNode {
+                        descriptor: &#desc_ident,
+                        next: None,
+                    };
+                    // This runs only once during initialization, so should be safe
+                    ::datatest::__internal::register(unsafe { &mut REGISTRATION });
+                }
+            };
+            tokens
+        }
+    }
+}
+
+/// Wrapper that turns on behavior that works only on nightly Rust.
+#[proc_macro_attribute]
+pub fn test_stable(
+    _args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let mut func_item = parse_macro_input!(func as ItemFn);
+    let info = handle_common_attrs(&mut func_item, true);
+    let func_ident = &func_item.sig.ident;
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
+
+    let ignore = info.ignore;
+    let should_panic = match info.should_panic {
+        ShouldPanic::No => quote!(::datatest::__internal::RegularShouldPanic::No),
+        ShouldPanic::Yes => quote!(::datatest::__internal::RegularShouldPanic::Yes),
+        ShouldPanic::YesWithMessage(v) => quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v)),
+    };
+    let registration = test_registration(Channel::Stable, &desc_ident);
+    let output = quote! {
+        #registration
+        #[automatically_derived]
+        #[allow(non_upper_case_globals)]
+        static #desc_ident: ::datatest::__internal::RegularTestDesc = ::datatest::__internal::RegularTestDesc {
+            name: concat!(module_path!(), "::", #func_name_str),
+            ignore: #ignore,
+            testfn: #func_ident,
+            should_panic: #should_panic,
+        };
+
+        #func_item
+    };
+
     output.into()
 }

@@ -1,6 +1,6 @@
 [package]
 name = "datatest-derive"
-version = "0.3.5"
+version = "0.4.0"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
@@ -13,6 +13,6 @@ Procmacro for the datatest crate
 proc-macro = true
 
 [dependencies]
-quote = "0.6.10"
-syn = { version = "0.15.20", features = ["full"] }
-proc-macro2 = "0.4.23"
+quote = "1.0.2"
+syn = { version = "1.0.3", features = ["full"] }
+proc-macro2 = "1.0.1"
