@@ -9,7 +9,7 @@ use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{braced, parse_macro_input, ArgCaptured, FnArg, Ident, ItemFn, Pat};
+use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Type};
 
 type Error = syn::parse::Error;
 
@@ -154,22 +154,17 @@ fn files_internal(
     func: proc_macro::TokenStream,
     channel: Channel,
 ) -> proc_macro::TokenStream {
-    let mut func_item = parse_macro_input!(func as ItemFn);
+    let mut func_item: ItemFn = parse_macro_input!(func as ItemFn);
     let args: FilesTestArgs = parse_macro_input!(args as FilesTestArgs);
-
-    let func_name_str = func_item.ident.to_string();
-    let desc_ident = Ident::new(
-        &format!("__TEST_{}", func_item.ident),
-        func_item.ident.span(),
-    );
-    let trampoline_func_ident = Ident::new(
-        &format!("__TEST_TRAMPOLINE_{}", func_item.ident),
-        func_item.ident.span(),
-    );
-
     let info = handle_common_attrs(&mut func_item, false);
+    let func_ident = &func_item.sig.ident;
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
+    let trampoline_func_ident = Ident::new(
+        &format!("__TEST_TRAMPOLINE_{}", func_ident),
+        func_ident.span(),
+    );
     let ignore = info.ignore;
-
     let root = args.root;
     let mut pattern_idx = None;
     let mut params: Vec<String> = Vec::new();
@@ -182,13 +177,9 @@ fn files_internal(
     // 2. For each argument we collect piece of code to create argument from the `&[PathBuf]` slice
     // given to us by the test runner.
     // 3. Capture the index of the argument corresponding to the "pattern" mapping
-    for (mut idx, arg) in func_item.decl.inputs.iter().enumerate() {
-        match arg {
-            FnArg::Captured(ArgCaptured {
-                pat: Pat::Ident(pat_ident),
-                ty,
-                ..
-            }) => {
+    for (mut idx, arg) in func_item.sig.inputs.iter().enumerate() {
+        match match_arg(arg) {
+            Some((pat_ident, ty)) => {
                 if info.bench {
                     if idx == 0 {
                         // FIXME: verify is Bencher!
@@ -220,7 +211,7 @@ fn files_internal(
                         .into();
                 }
             }
-            _ => {
+            None => {
                 return Error::new(
                     arg.span(),
                     "unexpected argument; only simple argument types are allowed (`&str`, `String`, `&[u8]`, `Vec<u8>`, `&Path`, etc)",
@@ -243,9 +234,6 @@ fn files_internal(
             .to_compile_error()
             .into();
     }
-
-    // So we can invoke original function from the trampoline function
-    let orig_func_name = &func_item.ident;
 
     let (kind, bencher_param) = if info.bench {
         (
@@ -274,13 +262,22 @@ fn files_internal(
         #[automatically_derived]
         #[allow(non_snake_case)]
         fn #trampoline_func_ident(#bencher_param paths_arg: &[::std::path::PathBuf]) {
-            let result = #orig_func_name(#(#invoke_args),*);
+            let result = #func_ident(#(#invoke_args),*);
             ::datatest::__internal::assert_test_result(result);
         }
 
         #func_item
     };
     output.into()
+}
+
+fn match_arg(arg: &FnArg) -> Option<(&PatIdent, &Type)> {
+    if let FnArg::Typed(PatType { pat, ty, .. }) = arg {
+        if let Pat::Ident(pat_ident) = pat.as_ref() {
+            return Some((pat_ident, ty));
+        }
+    }
+    None
 }
 
 enum ShouldPanic {
@@ -354,7 +351,7 @@ fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
             for item in list.nested {
                 match item {
                     syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
-                        if nv.ident == "expected" =>
+                        if nv.path.is_ident("expected") =>
                     {
                         if let syn::Lit::Str(ref value) = nv.lit {
                             return ShouldPanic::YesWithMessage(value.value());
@@ -413,32 +410,27 @@ fn data_internal(
 ) -> proc_macro::TokenStream {
     let mut func_item = parse_macro_input!(func as ItemFn);
     let cases: DataTestArgs = parse_macro_input!(args as DataTestArgs);
+    let info = handle_common_attrs(&mut func_item, false);
     let cases = match cases {
         DataTestArgs::Literal(path) => quote!(datatest::yaml(#path)),
         DataTestArgs::Expression(expr) => quote!(#expr),
     };
+    let func_ident = &func_item.sig.ident;
 
-    let func_name_str = func_item.ident.to_string();
-    let desc_ident = Ident::new(
-        &format!("__TEST_{}", func_item.ident),
-        func_item.ident.span(),
-    );
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
     let describe_func_ident = Ident::new(
-        &format!("__TEST_DESCRIBE_{}", func_item.ident),
-        func_item.ident.span(),
+        &format!("__TEST_DESCRIBE_{}", func_ident),
+        func_ident.span(),
     );
     let trampoline_func_ident = Ident::new(
-        &format!("__TEST_TRAMPOLINE_{}", func_item.ident),
-        func_item.ident.span(),
+        &format!("__TEST_TRAMPOLINE_{}", func_ident),
+        func_ident.span(),
     );
 
-    let info = handle_common_attrs(&mut func_item, false);
     let ignore = info.ignore;
-
     // FIXME: check file exists!
-
-    let orig_func_ident = &func_item.ident;
-    let mut args = func_item.decl.inputs.iter();
+    let mut args = func_item.sig.inputs.iter();
 
     if info.bench {
         // Skip Bencher argument
@@ -448,7 +440,7 @@ fn data_internal(
 
     let arg = args.next();
     let ty = match arg {
-        Some(FnArg::Captured(ArgCaptured { ty, .. })) => Some(ty),
+        Some(FnArg::Typed(PatType { ty, .. })) => Some(ty.as_ref()),
         _ => None,
     };
     let (ref_token, ty) = match ty {
@@ -484,7 +476,7 @@ fn data_internal(
         #[automatically_derived]
         #[allow(non_snake_case)]
         fn #trampoline_func_ident(#bencher_param arg: #ty) {
-            let result = #orig_func_ident(#bencher_arg #ref_token arg);
+            let result = #func_ident(#bencher_arg #ref_token arg);
             ::datatest::__internal::assert_test_result(result);
         }
 
@@ -545,20 +537,16 @@ pub fn test_stable(
 ) -> proc_macro::TokenStream {
     let mut func_item = parse_macro_input!(func as ItemFn);
     let info = handle_common_attrs(&mut func_item, true);
-    let ignore = info.ignore;
-    let func_ident = &func_item.ident;
-    let func_name_str = func_item.ident.to_string();
-    let desc_ident = Ident::new(
-        &format!("__TEST_{}", func_item.ident),
-        func_item.ident.span(),
-    );
+    let func_ident = &func_item.sig.ident;
+    let func_name_str = func_ident.to_string();
+    let desc_ident = Ident::new(&format!("__TEST_{}", func_ident), func_ident.span());
 
+    let ignore = info.ignore;
     let should_panic = match info.should_panic {
         ShouldPanic::No => quote!(::datatest::__internal::RegularShouldPanic::No),
         ShouldPanic::Yes => quote!(::datatest::__internal::RegularShouldPanic::Yes),
         ShouldPanic::YesWithMessage(v) => quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v)),
     };
-
     let registration = test_registration(Channel::Stable, &desc_ident);
     let output = quote! {
         #registration
