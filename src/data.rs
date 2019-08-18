@@ -1,7 +1,7 @@
 //! Support module for `#[datatest::data(..)]`
+use rustc_test::{Bencher, TDynBenchFn};
 use serde::de::DeserializeOwned;
 use std::path::Path;
-use test::TDynBenchFn;
 use yaml_rust::parser::Event;
 use yaml_rust::scanner::Marker;
 
@@ -70,15 +70,15 @@ impl<T: ToString> TestNameWithDefault for T {
 }
 
 #[doc(hidden)]
-pub struct DataBenchFn<T>(pub fn(&mut test::Bencher, T), pub T)
+pub struct DataBenchFn<T>(pub fn(&mut Bencher, T), pub T)
 where
     T: Send + Clone;
 
-impl<T> test::TDynBenchFn for DataBenchFn<T>
+impl<T> rustc_test::TDynBenchFn for DataBenchFn<T>
 where
     T: Send + Clone,
 {
-    fn run(&self, harness: &mut test::Bencher) {
+    fn run(&self, harness: &mut Bencher) {
         (self.0)(harness, self.1.clone())
     }
 }

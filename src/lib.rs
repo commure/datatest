@@ -109,7 +109,7 @@
 //! ## More examples
 //!
 //! For more examples, check the [tests](https://github.com/commure/datatest/blob/master/tests/datatest.rs).
-extern crate test;
+extern crate test as rustc_test;
 
 mod data;
 mod files;
@@ -121,18 +121,18 @@ pub mod __internal {
     pub use crate::data::{DataBenchFn, DataTestDesc, DataTestFn};
     pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
     pub use crate::runner::assert_test_result;
-    pub use crate::test::Bencher;
+    pub use crate::rustc_test::Bencher;
     pub use ctor::ctor;
 
     // To maintain registry on stable channel
-    pub use crate::runner::{register, RegistrationNode};
+    pub use crate::runner::{register, RegistrationNode, RegularShouldPanic, RegularTestDesc};
 }
 
 pub use crate::runner::runner;
 
 #[doc(hidden)]
 #[cfg(feature = "stable")]
-pub use datatest_derive::{data_stable as data, files_stable as files};
+pub use datatest_derive::{data_stable as data, files_stable as files, test_stable as test};
 
 #[doc(hidden)]
 #[cfg(feature = "nightly")]

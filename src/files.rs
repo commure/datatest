@@ -1,4 +1,5 @@
 //! Support module for `#[datatest::files(..)]`
+use rustc_test::Bencher;
 use std::borrow::Borrow;
 use std::path::{Path, PathBuf};
 
@@ -7,7 +8,7 @@ use std::path::{Path, PathBuf};
 #[doc(hidden)]
 pub enum FilesTestFn {
     TestFn(fn(&[PathBuf])),
-    BenchFn(fn(&mut test::Bencher, &[PathBuf])),
+    BenchFn(fn(&mut Bencher, &[PathBuf])),
 }
 
 /// Descriptor used internally for `#[datatest::files(..)]` tests.

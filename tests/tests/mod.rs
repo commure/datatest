@@ -98,6 +98,20 @@ fn simple_test_ignored() {
     panic!("ignored test!")
 }
 
+/// Regular tests are also allowed! Also, could use `#[should_panic]`
+#[test]
+#[should_panic]
+fn simple_test_panics() {
+    panic!("panicking test!")
+}
+
+/// Regular tests are also allowed! Also, could use `#[should_panic]`
+#[test]
+#[should_panic(expected = "panicking test!")]
+fn simple_test_panics_message() {
+    panic!("panicking test!")
+}
+
 /// This test case item does not implement [`std::fmt::Display`], so only line number is shown in
 /// the test name.
 #[derive(Deserialize)]

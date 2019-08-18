@@ -167,7 +167,7 @@ fn files_internal(
         func_item.ident.span(),
     );
 
-    let info = handle_common_attrs(&mut func_item);
+    let info = handle_common_attrs(&mut func_item, false);
     let ignore = info.ignore;
 
     let root = args.root;
@@ -283,12 +283,21 @@ fn files_internal(
     output.into()
 }
 
+enum ShouldPanic {
+    No,
+    Yes,
+    YesWithMessage(String),
+}
+
 struct FuncInfo {
     ignore: bool,
     bench: bool,
+    should_panic: ShouldPanic,
 }
 
-fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
+/// Only allows certain attributes (`#[should_panic]`, for example) when used against a "regular"
+/// test `#[test]`.
+fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     // Remove #[test] attribute as we don't want standard test framework to handle it!
     // We allow #[test] to be used to improve IDE experience (namely, IntelliJ Rust), which would
     // only allow you to run test if it is marked with `#[test]`
@@ -317,10 +326,46 @@ fn handle_common_attrs(func: &mut ItemFn) -> FuncInfo {
     if let Some(pos) = ignore_pos {
         func.attrs.remove(pos);
     }
+
+    let mut should_panic = ShouldPanic::No;
+    if regular_test {
+        // Regular tests support (on stable channel): allow `#[should_panic]`
+        let should_panic_pos = func
+            .attrs
+            .iter()
+            .position(|attr| attr.path.is_ident("should_panic"));
+        if let Some(pos) = should_panic_pos {
+            let attr = &func.attrs[pos];
+            should_panic = parse_should_panic(attr);
+            func.attrs.remove(pos);
+        }
+    }
+
     FuncInfo {
         ignore: ignore_pos.is_some(),
         bench: bench_pos.is_some(),
+        should_panic,
     }
+}
+
+fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
+    if let Some(meta) = attr.parse_meta().ok() {
+        if let syn::Meta::List(list) = meta {
+            for item in list.nested {
+                match item {
+                    syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
+                        if nv.ident == "expected" =>
+                    {
+                        if let syn::Lit::Str(ref value) = nv.lit {
+                            return ShouldPanic::YesWithMessage(value.value());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    ShouldPanic::Yes
 }
 
 /// Parse `#[data(...)]` attribute arguments. It's either a function returning
@@ -387,7 +432,7 @@ fn data_internal(
         func_item.ident.span(),
     );
 
-    let info = handle_common_attrs(&mut func_item);
+    let info = handle_common_attrs(&mut func_item, false);
     let ignore = info.ignore;
 
     // FIXME: check file exists!
@@ -490,4 +535,44 @@ fn test_registration(channel: Channel, desc_ident: &syn::Ident) -> TokenStream {
             tokens
         }
     }
+}
+
+/// Wrapper that turns on behavior that works only on nightly Rust.
+#[proc_macro_attribute]
+pub fn test_stable(
+    _args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let mut func_item = parse_macro_input!(func as ItemFn);
+    let info = handle_common_attrs(&mut func_item, true);
+    let ignore = info.ignore;
+    let func_ident = &func_item.ident;
+    let func_name_str = func_item.ident.to_string();
+    let desc_ident = Ident::new(
+        &format!("__TEST_{}", func_item.ident),
+        func_item.ident.span(),
+    );
+
+    let should_panic = match info.should_panic {
+        ShouldPanic::No => quote!(::datatest::__internal::RegularShouldPanic::No),
+        ShouldPanic::Yes => quote!(::datatest::__internal::RegularShouldPanic::Yes),
+        ShouldPanic::YesWithMessage(v) => quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v)),
+    };
+
+    let registration = test_registration(Channel::Stable, &desc_ident);
+    let output = quote! {
+        #registration
+        #[automatically_derived]
+        #[allow(non_upper_case_globals)]
+        static #desc_ident: ::datatest::__internal::RegularTestDesc = ::datatest::__internal::RegularTestDesc {
+            name: concat!(module_path!(), "::", #func_name_str),
+            ignore: #ignore,
+            testfn: #func_ident,
+            should_panic: #should_panic,
+        };
+
+        #func_item
+    };
+
+    output.into()
 }
