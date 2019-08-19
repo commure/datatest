@@ -115,6 +115,14 @@ mod data;
 mod files;
 mod runner;
 
+#[cfg(feature = "unsafe_test_runner")]
+mod interceptor;
+
+#[cfg(not(feature = "unsafe_test_runner"))]
+mod interceptor {
+    pub fn install_interceptor() {}
+}
+
 /// Internal re-exports for the procedural macro to use.
 #[doc(hidden)]
 pub mod __internal {

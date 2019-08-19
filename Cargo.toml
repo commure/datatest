@@ -1,6 +1,6 @@
 [package]
 name = "datatest"
-version = "0.4.1-alpha.0"
+version = "0.4.1"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
@@ -25,6 +25,7 @@ serde = "1.0.84"
 serde_yaml = "0.8.7"
 yaml-rust = "0.4.2"
 ctor = "0.1.10"
+region = { version = "2.1.2", optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0.84", features = ["derive"] }
@@ -33,3 +34,7 @@ serde = { version = "1.0.84", features = ["derive"] }
 members = [
     "datatest-derive"
 ]
+
+[features]
+unsafe_test_runner = ["region"]
+default = []

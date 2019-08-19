@@ -264,6 +264,8 @@ pub struct RegistrationNode {
 static REGISTRY: AtomicPtr<RegistrationNode> = AtomicPtr::new(std::ptr::null_mut());
 
 pub fn register(new: &mut RegistrationNode) {
+    crate::interceptor::install_interceptor();
+
     let reg = &REGISTRY;
     let mut current = reg.load(Ordering::SeqCst);
     loop {
