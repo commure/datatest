@@ -4,51 +4,18 @@ trigger:
   tags:
     include: ['*']
 
-resources:
-  repositories:
-    - repository: templates
-      type: github
-      name: xoac/rust-azure-pipelines
-      ref: refs/tags/v0.0.3
-      endpoint: PipelinesTemplates
-
 jobs:
-# Check formatting
-- template: ci/rustfmt.yml@templates
-  parameters:
-    name: rustfmt
-    displayName: Check formatting
-
-# Cargo check
-- template: ci/cargo-check.yml@templates
-  parameters:
-    name: cargo_check
-    displayName: Cargo check
-
-# This represents the minimum Rust version supported.
-# Tests are not run as tests may require newer versions of rust.
-- template: ci/cargo-check.yml@templates
-  parameters:
-    name: minrust
-    rust_version: 1.31.0 # The 2018 edition
-    displayName: Check rust min ver
-
-################
-# Test stage   #
-###############
-
-# Test stable
-- template: ci/test.yml@templates
-  parameters:
-    dependsOn:
-      - cargo_check
-    name: cargo_test_stable
-    displayName: Cargo test
-    cross: true # Test on Windows and macOS
-
-# Test nightly
-- template: ci/test.yml@templates
-  parameters:
-    name: cargo_test_nightly
-    displayName: Cargo test
-    rust_version: nightly
+  - template: ci/job-rustfmt.yml
+  - template: ci/job-check.yml
+  - template: ci/job-test.yml
+    parameters:
+      name: test_stable
+      toolchain: stable
+      steps:
+        - script: |
+            cargo test --features unsafe_test_runner --test datatest_stable_unsafe
+          displayName: cargo test --features unsafe_test_runner --test datatest_stable_unsafe
+  - template: ci/job-test.yml
+    parameters:
+      name: test_nightly
+      toolchain: nightly

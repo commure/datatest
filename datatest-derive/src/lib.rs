@@ -545,7 +545,9 @@ pub fn test_stable(
     let should_panic = match info.should_panic {
         ShouldPanic::No => quote!(::datatest::__internal::RegularShouldPanic::No),
         ShouldPanic::Yes => quote!(::datatest::__internal::RegularShouldPanic::Yes),
-        ShouldPanic::YesWithMessage(v) => quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v)),
+        ShouldPanic::YesWithMessage(v) => {
+            quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v))
+        }
     };
     let registration = test_registration(Channel::Stable, &desc_ident);
     let output = quote! {
