@@ -264,6 +264,9 @@ pub struct RegistrationNode {
 static REGISTRY: AtomicPtr<RegistrationNode> = AtomicPtr::new(std::ptr::null_mut());
 
 pub fn register(new: &mut RegistrationNode) {
+    // Install interceptor that will catch invocation of `test_main_static` so we can collect all
+    // the test cases annotated with `#[test]` (built-in tests). This is needed to support regular
+    // `#[test]` tests on stable channel where we don't have a way to override test runner.
     crate::interceptor::install_interceptor();
 
     let reg = &REGISTRY;
