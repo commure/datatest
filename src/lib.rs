@@ -138,13 +138,16 @@ pub mod __internal {
 
 pub use crate::runner::runner;
 
-#[doc(hidden)]
-#[cfg(feature = "stable")]
-pub use datatest_derive::{data_stable as data, files_stable as files, test_stable as test};
+#[cfg(not(feature = "test_case_registration"))]
+pub use datatest_derive::{
+    data_ctor_registration as data, files_ctor_registration as files,
+    test_ctor_registration as test,
+};
 
-#[doc(hidden)]
-#[cfg(feature = "nightly")]
-pub use datatest_derive::{data_nightly as data, files_nightly as files};
+#[cfg(feature = "test_case_registration")]
+pub use datatest_derive::{
+    data_test_case_registration as data, files_test_case_registration as files,
+};
 
 /// Experimental functionality.
 #[doc(hidden)]

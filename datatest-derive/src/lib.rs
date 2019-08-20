@@ -85,27 +85,30 @@ impl Parse for FilesTestArgs {
     }
 }
 
-enum Channel {
-    Stable,
+enum Registration {
+    /// Register test cases via "global" constructors (https://crates.io/crates/ctor)
+    Ctor,
+    /// Register test cases via `#[test_case]` attribute (requires `custom_test_frameworks` unstable
+    /// feature).
     Nightly,
 }
 
 /// Wrapper that turns on behavior that works on stable Rust.
 #[proc_macro_attribute]
-pub fn files_stable(
+pub fn files_ctor_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    files_internal(args, func, Channel::Stable)
+    files_internal(args, func, Registration::Ctor)
 }
 
 /// Wrapper that turns on behavior that works only on nightly Rust.
 #[proc_macro_attribute]
-pub fn files_nightly(
+pub fn files_test_case_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    files_internal(args, func, Channel::Nightly)
+    files_internal(args, func, Registration::Nightly)
 }
 
 /// Proc macro handling `#[files(...)]` syntax. This attribute defines rules for deriving
@@ -152,7 +155,7 @@ pub fn files_nightly(
 fn files_internal(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
-    channel: Channel,
+    channel: Registration,
 ) -> proc_macro::TokenStream {
     let mut func_item: ItemFn = parse_macro_input!(func as ItemFn);
     let args: FilesTestArgs = parse_macro_input!(args as FilesTestArgs);
@@ -387,26 +390,26 @@ impl Parse for DataTestArgs {
 
 /// Wrapper that turns on behavior that works on stable Rust.
 #[proc_macro_attribute]
-pub fn data_stable(
+pub fn data_ctor_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    data_internal(args, func, Channel::Stable)
+    data_internal(args, func, Registration::Ctor)
 }
 
 /// Wrapper that turns on behavior that works only on nightly Rust.
 #[proc_macro_attribute]
-pub fn data_nightly(
+pub fn data_test_case_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    data_internal(args, func, Channel::Nightly)
+    data_internal(args, func, Registration::Nightly)
 }
 
 fn data_internal(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
-    channel: Channel,
+    channel: Registration,
 ) -> proc_macro::TokenStream {
     let mut func_item = parse_macro_input!(func as ItemFn);
     let cases: DataTestArgs = parse_macro_input!(args as DataTestArgs);
@@ -503,12 +506,12 @@ fn data_internal(
     output.into()
 }
 
-fn test_registration(channel: Channel, desc_ident: &syn::Ident) -> TokenStream {
+fn test_registration(channel: Registration, desc_ident: &syn::Ident) -> TokenStream {
     match channel {
         // On nightly, we rely on `custom_test_frameworks` feature
-        Channel::Nightly => quote!(#[test_case]),
+        Registration::Nightly => quote!(#[test_case]),
         // On stable, we use `ctor` crate to build a registry of all our tests
-        Channel::Stable => {
+        Registration::Ctor => {
             let registration_fn =
                 syn::Ident::new(&format!("{}__REGISTRATION", desc_ident), desc_ident.span());
             let tokens = quote! {
@@ -531,7 +534,7 @@ fn test_registration(channel: Channel, desc_ident: &syn::Ident) -> TokenStream {
 
 /// Wrapper that turns on behavior that works only on nightly Rust.
 #[proc_macro_attribute]
-pub fn test_stable(
+pub fn test_ctor_registration(
     _args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -549,7 +552,7 @@ pub fn test_stable(
             quote!(::datatest::__internal::RegularShouldPanic::YesWithMessage(#v))
         }
     };
-    let registration = test_registration(Channel::Stable, &desc_ident);
+    let registration = test_registration(Registration::Ctor, &desc_ident);
     let output = quote! {
         #registration
         #[automatically_derived]
