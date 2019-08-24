@@ -1,6 +1,6 @@
 [package]
 name = "datatest"
-version = "0.4.3-alpha.0"
+version = "0.5.0"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
@@ -38,9 +38,15 @@ members = [
 # of all tests.
 test_case_registration = []
 
-# Use very, very, very sketchy way of intercepting a test runner in Rust. Without that feature, there are two options:
+# Use very, very, very sketchy way of intercepting a test runner on a stable Rust. Without that feature, there are two
+# options:
 # 1. use `#![test_runner(datatest::runner)]` (nightly-only)
 # 2. use `harness = false` in `Cargo.toml` with `datatest::harness!()` macro; however, in this case care must be taken
 # to use `#[datatest::test]` instead of regular `#[test]` or otherwise tests will be silently ignored.
 unsafe_test_runner = ["region"]
+
+# Make this crate useable on stable Rust channel. Uses forbidden technique to allow usage of this crate on a stable
+# Rust compiler. This, however, does not bring any guarantees above "nighly" -- this crate can break at any time.
+subvert_stable_guarantees = []
+
 default = []
