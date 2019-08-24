@@ -2,6 +2,7 @@ parameters:
   toolchain: stable
   name: test
   steps: []
+  features: []
 jobs:
   - job: ${{ parameters.name }}
     displayName: test (${{parameters.toolchain}})
@@ -21,7 +22,7 @@ jobs:
         parameters:
           toolchain: ${{ parameters.toolchain }}
       - script: |
-          cargo test --all --all-targets
+          cargo test --all --all-targets --features "${{ join(' ', parameters.features) }}"
         displayName: cargo test --all --all-targets
       - ${{ each step in parameters.steps }}:
           - ${{ each pair in step }}:

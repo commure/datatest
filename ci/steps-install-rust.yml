@@ -20,13 +20,13 @@ steps:
       RUSTUP_TOOLCHAIN: ${{parameters.toolchain}}
     displayName: "Install rust (Windows)"
     condition: eq(variables['Agent.OS'], 'Windows_NT')
-  - ${{ each component in parameters.components }}:
-      - script: rustup component add ${{ component }}
-        displayName: rustup component add ${{ component }}
   - script: |
       rustup toolchain install ${{parameters.toolchain}}
       rustup default ${{parameters.toolchain}}
     displayName: rustup default ${{parameters.toolchain}}
+  - ${{ each component in parameters.components }}:
+      - script: rustup component add ${{ component }}
+        displayName: rustup component add ${{ component }}
   - script: |
       rustup -V
       rustup component list --installed

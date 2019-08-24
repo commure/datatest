@@ -112,6 +112,13 @@ fn sample_test(case: TestCase) {
 
 For more examples, check the [tests](https://github.com/commure/datatest/blob/master/tests/datatest.rs).
 
+# Notes on Rust channel
+
+Currently this crate targets primarily nightly Rust and can break at any time.
+
+It could be compiled on stable by enabling certain feature (see `Cargo.toml`), but using this feature would subvert
+any stability guarantees Rust provides.
+
 ## License
 
 Licensed under either of
