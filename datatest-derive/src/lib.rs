@@ -561,7 +561,10 @@ pub fn test_ctor_registration(
         static #desc_ident: ::datatest::__internal::RegularTestDesc = ::datatest::__internal::RegularTestDesc {
             name: concat!(module_path!(), "::", #func_name_str),
             ignore: #ignore,
-            testfn: #func_ident,
+            testfn: || {
+                let result = #func_ident();
+                ::datatest::__internal::assert_test_result(result);
+            },
             should_panic: #should_panic,
         };
 
