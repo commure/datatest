@@ -532,7 +532,8 @@ fn test_registration(channel: Registration, desc_ident: &syn::Ident) -> TokenStr
     }
 }
 
-/// Wrapper that turns on behavior that works only on nightly Rust.
+/// Replacement for the `#[test]` attribute that uses ctor-based test registration so it can be
+/// used when the whole test harness is replaced.
 #[proc_macro_attribute]
 pub fn test_ctor_registration(
     _args: proc_macro::TokenStream,
