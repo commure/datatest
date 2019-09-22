@@ -366,7 +366,7 @@ fn render_test_descriptor(
         DatatestTestDesc::RegularTest(desc) => {
             rendered.push(TestDescAndFn {
                 desc: TestDesc {
-                    name: TestName::StaticTestName(desc.name),
+                    name: TestName::StaticTestName(real_name(desc.name)),
                     ignore: desc.ignore,
                     // FIXME: should support!
                     should_panic: desc.should_panic.into(),
