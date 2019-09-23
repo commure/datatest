@@ -23,11 +23,11 @@ use std::path::Path;
 /// [replacement string]: https://docs.rs/regex/*/regex/struct.Regex.html#method.replace
 /// [regex]: https://docs.rs/regex/*/regex/
 #[datatest::files("tests/test-cases", {
-// Pattern is defined via `in` operator. Every file from the `directory` above will be matched
-// against this regular expression and every matched file will produce a separate test.
-input in r"^(.*)\.input\.txt",
-// Template defines a rule for deriving dependent file name based on captures of the pattern.
-output = r"${1}.output.txt",
+    // Pattern is defined via `in` operator. Every file from the `directory` above will be matched
+    // against this regular expression and every matched file will produce a separate test.
+    input in r"^(.*)\.input\.txt",
+    // Template defines a rule for deriving dependent file name based on captures of the pattern.
+    output = r"${1}.output.txt",
 })]
 #[test]
 fn files_test_strings(input: &str, output: &str) {
@@ -37,8 +37,8 @@ fn files_test_strings(input: &str, output: &str) {
 /// Same as above, but always panics, so marked by `#[ignore]`
 #[ignore]
 #[datatest::files("tests/test-cases", {
-input in r"^(.*)\.input\.txt",
-output = r"${1}.output.txt",
+    input in r"^(.*)\.input\.txt",
+    output = r"${1}.output.txt",
 })]
 #[test]
 fn files_tests_not_working_yet_and_never_will(input: &str, output: &str) {
@@ -47,8 +47,8 @@ fn files_tests_not_working_yet_and_never_will(input: &str, output: &str) {
 
 /// Can declare with `&std::path::Path` to get path instead of the content
 #[datatest::files("tests/test-cases", {
-input in r"^(.*)\.input\.txt",
-output = r"${1}.output.txt",
+    input in r"^(.*)\.input\.txt",
+    output = r"${1}.output.txt",
 })]
 #[test]
 fn files_test_paths(input: &Path, output: &Path) {
@@ -60,8 +60,8 @@ fn files_test_paths(input: &Path, output: &Path) {
 
 /// Can also take slices
 #[datatest::files("tests/test-cases", {
-input in r"^(.*)\.input\.txt",
-output = r"${1}.output.txt",
+    input in r"^(.*)\.input\.txt",
+    output = r"${1}.output.txt",
 })]
 #[test]
 fn files_test_slices(input: &[u8], output: &[u8]) {
@@ -77,8 +77,8 @@ fn is_ignore(path: &Path) -> bool {
 
 /// Ignore first test case!
 #[datatest::files("tests/test-cases", {
-input in r"^(.*)\.input\.txt" if !is_ignore,
-output = r"${1}.output.txt",
+    input in r"^(.*)\.input\.txt" if !is_ignore,
+    output = r"${1}.output.txt",
 })]
 #[test]
 fn files_test_ignore(input: &str) {

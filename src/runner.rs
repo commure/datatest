@@ -2,7 +2,7 @@ use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
 use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
 /// Our own copy of `test::ShouldPanic` to be used on stable channel (using types from `test` crate
 /// is not allowed on stable without `#![feature(test)]`. Pretty much copy-pasted.
@@ -263,6 +263,8 @@ pub struct RegistrationNode {
 
 static REGISTRY: AtomicPtr<RegistrationNode> = AtomicPtr::new(std::ptr::null_mut());
 
+static REGISTRY_USED: AtomicBool = AtomicBool::new(false);
+
 pub fn register(new: &mut RegistrationNode) {
     // Install interceptor that will catch invocation of `test_main_static` so we can collect all
     // the test cases annotated with `#[test]` (built-in tests). This is needed to support regular
@@ -327,6 +329,9 @@ pub fn runner(tests: &[&dyn TestDescriptor]) {
         render_test_descriptor(*input, &mut opts, &mut rendered);
     }
 
+    // Indicate that we used our registry
+    REGISTRY_USED.store(true, Ordering::SeqCst);
+
     // Gather tests registered via our registry (stable channel)
     let mut current = unsafe { REGISTRY.load(Ordering::SeqCst).as_ref() };
     while let Some(node) = current {
@@ -375,6 +380,16 @@ fn render_test_descriptor(
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
         }
+    }
+}
+
+/// Make sure we our registry was actually scanned!
+/// This would detect scenario where none of the ways are used to plug datatest
+/// test runner (either by replacing the whole harness or by overriding test runner).
+/// So, for every test we have registered, we make sure this test actually gets
+pub fn check_test_runner() {
+    if !REGISTRY_USED.load(Ordering::SeqCst) {
+        panic!("test runner was not configured!");
     }
 }
 

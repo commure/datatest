@@ -9,11 +9,11 @@ use datatest::test;
 
 #[test]
 fn regular_test() {
-    assert!(true, "regular tests also work!");
+    println!("regular tests also work!");
 }
 
 #[test]
 fn regular_test_result() -> Result<(), Box<dyn std::error::Error>> {
-    assert!(true, "regular tests also work!");
+    println!("regular tests also work!");
     Ok(())
 }

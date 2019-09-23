@@ -99,12 +99,36 @@ pub fn files_ctor_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    files_internal(args, func, Registration::Ctor)
+    guarded_test_attribute(
+        args,
+        func,
+        Ident::new("files_ctor_internal", Span::call_site()),
+    )
 }
 
 /// Wrapper that turns on behavior that works only on nightly Rust.
 #[proc_macro_attribute]
 pub fn files_test_case_registration(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    guarded_test_attribute(
+        args,
+        func,
+        Ident::new("files_test_case_internal", Span::call_site()),
+    )
+}
+
+#[proc_macro_attribute]
+pub fn files_ctor_internal(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    files_internal(args, func, Registration::Ctor)
+}
+
+#[proc_macro_attribute]
+pub fn files_test_case_internal(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -349,7 +373,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
 }
 
 fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
-    if let Some(meta) = attr.parse_meta().ok() {
+    if let Ok(meta) = attr.parse_meta() {
         if let syn::Meta::List(list) = meta {
             for item in list.nested {
                 match item {
@@ -371,6 +395,7 @@ fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
 /// Parse `#[data(...)]` attribute arguments. It's either a function returning
 /// `Vec<datatest::DataTestCaseDesc<T>>` (where `T` is a test case type) or string literal, which
 /// is interpreted as `datatest::yaml("<path>")`
+#[allow(clippy::large_enum_variant)]
 enum DataTestArgs {
     Literal(syn::LitStr),
     Expression(syn::Expr),
@@ -394,12 +419,36 @@ pub fn data_ctor_registration(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    data_internal(args, func, Registration::Ctor)
+    guarded_test_attribute(
+        args,
+        func,
+        Ident::new("data_ctor_internal", Span::call_site()),
+    )
 }
 
 /// Wrapper that turns on behavior that works only on nightly Rust.
 #[proc_macro_attribute]
 pub fn data_test_case_registration(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    guarded_test_attribute(
+        args,
+        func,
+        Ident::new("data_test_case_internal", Span::call_site()),
+    )
+}
+
+#[proc_macro_attribute]
+pub fn data_ctor_internal(
+    args: proc_macro::TokenStream,
+    func: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    data_internal(args, func, Registration::Ctor)
+}
+
+#[proc_macro_attribute]
+pub fn data_test_case_internal(
     args: proc_macro::TokenStream,
     func: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -514,7 +563,9 @@ fn test_registration(channel: Registration, desc_ident: &syn::Ident) -> TokenStr
         Registration::Ctor => {
             let registration_fn =
                 syn::Ident::new(&format!("{}__REGISTRATION", desc_ident), desc_ident.span());
+            let check_fn = syn::Ident::new(&format!("{}__CHECK", desc_ident), desc_ident.span());
             let tokens = quote! {
+                #[automatically_derived]
                 #[allow(non_snake_case)]
                 #[datatest::__internal::ctor]
                 fn #registration_fn() {
@@ -525,6 +576,20 @@ fn test_registration(channel: Registration, desc_ident: &syn::Ident) -> TokenStr
                     };
                     // This runs only once during initialization, so should be safe
                     ::datatest::__internal::register(unsafe { &mut REGISTRATION });
+                }
+
+                // Make sure we our registry was actually scanned!
+                // This would detect scenario where none of the ways are used to plug datatest
+                // test runner (either by replacing the whole harness or by overriding test runner).
+                // So, for every test we have registered, we make sure this test actually gets
+                // executed.
+                #[automatically_derived]
+                #[allow(non_snake_case)]
+                mod #check_fn {
+                    #[datatest::__internal::dtor]
+                    fn check_fn() {
+                        ::datatest::__internal::check_test_runner();
+                    }
                 }
             };
             tokens
@@ -572,4 +637,19 @@ pub fn test_ctor_registration(
     };
 
     output.into()
+}
+
+fn guarded_test_attribute(
+    args: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+    implementation: Ident,
+) -> proc_macro::TokenStream {
+    let args: TokenStream = args.into();
+    let header = quote! {
+        #[cfg(test)]
+        #[::datatest::__internal::#implementation(#args)]
+    };
+    let mut out: proc_macro::TokenStream = header.into();
+    out.extend(item);
+    out
 }

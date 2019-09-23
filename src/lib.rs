@@ -130,10 +130,16 @@ pub mod __internal {
     pub use crate::files::{DeriveArg, FilesTestDesc, FilesTestFn, TakeArg};
     pub use crate::runner::assert_test_result;
     pub use crate::rustc_test::Bencher;
-    pub use ctor::ctor;
+    pub use ctor::{ctor, dtor};
 
     // To maintain registry on stable channel
-    pub use crate::runner::{register, RegistrationNode, RegularShouldPanic, RegularTestDesc};
+    pub use crate::runner::{
+        check_test_runner, register, RegistrationNode, RegularShouldPanic, RegularTestDesc,
+    };
+    #[cfg(not(feature = "test_case_registration"))]
+    pub use datatest_derive::{data_ctor_internal, files_ctor_internal};
+    #[cfg(feature = "test_case_registration")]
+    pub use datatest_derive::{data_test_case_internal, files_test_case_internal};
 }
 
 pub use crate::runner::runner;
