@@ -199,3 +199,20 @@ fn read_to_end(path: &Path) -> Vec<u8> {
         .unwrap_or_else(|e| panic!("cannot read test input at '{}': {}", path.display(), e));
     input
 }
+
+use crate::rustc_test::TestType;
+
+/// Helper function used internally, to mirror how rustc_test chooses a TestType.
+/// Must be called with the result of `file!()` (called in macro output) to be meaningful.
+pub fn test_type(path: &'static str) -> TestType {
+    if path.starts_with("src") {
+        // `/src` folder contains unit-tests.
+        TestType::UnitTest
+    } else if path.starts_with("tests") {
+        // `/tests` folder contains integration tests.
+        TestType::IntegrationTest
+    } else {
+        // Crate layout doesn't match expected one, test type is unknown.
+        TestType::Unknown
+    }
+}
