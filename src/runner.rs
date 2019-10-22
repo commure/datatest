@@ -1,6 +1,6 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
-use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
+use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName, TestType};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
@@ -174,6 +174,7 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
                     allow_fail: false,
+                    test_type: TestType::Unknown,
                 },
                 testfn,
             };
@@ -217,6 +218,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 ignore: desc.ignore,
                 should_panic: ShouldPanic::No,
                 allow_fail: false,
+                test_type: TestType::Unknown,
             },
             testfn,
         };
@@ -376,6 +378,7 @@ fn render_test_descriptor(
                     // FIXME: should support!
                     should_panic: desc.should_panic.into(),
                     allow_fail: false,
+                    test_type: TestType::Unknown,
                 },
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
