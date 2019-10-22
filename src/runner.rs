@@ -1,8 +1,8 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
-use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
-#[cfg(feature="post_v139")]
+#[cfg(feature = "post_v139")]
 use crate::rustc_test::TestType;
+use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
@@ -50,8 +50,13 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name
 }
 
-#[cfg(feature="post_v139")]
-fn test_desc(name: TestName, ignore: bool, should_panic: ShouldPanic, allow_fail: bool) -> TestDesc {
+#[cfg(feature = "post_v139")]
+fn test_desc(
+    name: TestName,
+    ignore: bool,
+    should_panic: ShouldPanic,
+    allow_fail: bool,
+) -> TestDesc {
     TestDesc {
         name,
         ignore,
@@ -61,8 +66,13 @@ fn test_desc(name: TestName, ignore: bool, should_panic: ShouldPanic, allow_fail
     }
 }
 
-#[cfg(not(feature="post_v139"))]
-fn test_desc(name: TestName, ignore: bool, should_panic: ShouldPanic, allow_fail: bool) -> TestDesc {
+#[cfg(not(feature = "post_v139"))]
+fn test_desc(
+    name: TestName,
+    ignore: bool,
+    should_panic: ShouldPanic,
+    allow_fail: bool,
+) -> TestDesc {
     TestDesc {
         name,
         ignore,
