@@ -1,6 +1,8 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
-use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName, TestType};
+use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
+#[cfg(feature="post_v139")]
+use crate::rustc_test::TestType;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
@@ -46,6 +48,27 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name += "::";
     test_name += &relative.to_string_lossy();
     test_name
+}
+
+#[cfg(feature="post_v139")]
+fn test_desc(name: TestName, ignore: bool, should_panic: ShouldPanic, allow_fail: bool) -> TestDesc {
+    TestDesc {
+        name,
+        ignore,
+        should_panic,
+        allow_fail,
+        test_type: TestType::Unknown,
+    }
+}
+
+#[cfg(not(feature="post_v139"))]
+fn test_desc(name: TestName, ignore: bool, should_panic: ShouldPanic, allow_fail: bool) -> TestDesc {
+    TestDesc {
+        name,
+        ignore,
+        should_panic,
+        allow_fail,
+    }
 }
 
 /// When compiling tests, Rust compiler collects all items marked with `#[test_case]` and passes
@@ -168,14 +191,13 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 
             // Generate a standard test descriptor
             let desc = TestDescAndFn {
-                desc: TestDesc {
-                    name: TestName::DynTestName(test_name),
+                desc: test_desc(
+                    TestName::DynTestName(test_name),
                     ignore,
-                    should_panic: ShouldPanic::No,
+                    ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
-                    allow_fail: false,
-                    test_type: TestType::Unknown,
-                },
+                    false,
+                ),
                 testfn,
             };
 
@@ -213,13 +235,12 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 
         // Generate a standard test descriptor
         let desc = TestDescAndFn {
-            desc: TestDesc {
-                name: TestName::DynTestName(case_name),
-                ignore: desc.ignore,
-                should_panic: ShouldPanic::No,
-                allow_fail: false,
-                test_type: TestType::Unknown,
-            },
+            desc: test_desc(
+                TestName::DynTestName(case_name),
+                desc.ignore,
+                ShouldPanic::No,
+                false,
+            ),
             testfn,
         };
 
@@ -372,14 +393,13 @@ fn render_test_descriptor(
         }
         DatatestTestDesc::RegularTest(desc) => {
             rendered.push(TestDescAndFn {
-                desc: TestDesc {
-                    name: TestName::StaticTestName(real_name(desc.name)),
-                    ignore: desc.ignore,
+                desc: test_desc(
+                    TestName::StaticTestName(real_name(desc.name)),
+                    desc.ignore,
                     // FIXME: should support!
-                    should_panic: desc.should_panic.into(),
-                    allow_fail: false,
-                    test_type: TestType::Unknown,
-                },
+                    desc.should_panic.into(),
+                    false,
+                ),
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
         }
