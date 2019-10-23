@@ -38,6 +38,9 @@ members = [
 # of all tests.
 test_case_registration = []
 
+# Allow this to build on compiler versions >1.39.0. Needed due to unstable API changes.
+post_v139 = []
+
 # Use very, very, very sketchy way of intercepting a test runner on a stable Rust. Without that feature, there are two
 # options:
 # 1. use `#![test_runner(datatest::runner)]` (nightly-only)
