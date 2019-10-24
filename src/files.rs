@@ -21,6 +21,7 @@ pub struct FilesTestDesc {
     pub pattern: usize,
     pub ignorefn: Option<fn(&Path) -> bool>,
     pub testfn: FilesTestFn,
+    pub source_file: &'static str,
 }
 
 /// Trait defining conversion into a function argument. We use it to convert discovered paths

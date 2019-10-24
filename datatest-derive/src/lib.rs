@@ -284,6 +284,7 @@ fn files_internal(
             pattern: #pattern_idx,
             ignorefn: #ignore_func_ref,
             testfn: ::datatest::__internal::FilesTestFn::#kind(#trampoline_func_ident),
+            source_file: file!(),
         };
 
         #[automatically_derived]
@@ -523,6 +524,7 @@ fn data_internal(
             name: concat!(module_path!(), "::", #func_name_str),
             ignore: #ignore,
             describefn: #describe_func_ident,
+            source_file: file!(),
         };
 
         #[automatically_derived]
@@ -629,6 +631,7 @@ pub fn test_ctor_registration(
                 ::datatest::__internal::assert_test_result(result);
             },
             should_panic: #should_panic,
+            source_file: file!(),
         };
 
         #func_item

@@ -34,6 +34,7 @@ pub struct RegularTestDesc {
     pub ignore: bool,
     pub testfn: fn(),
     pub should_panic: RegularShouldPanic,
+    pub source_file: &'static str,
 }
 
 fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
@@ -50,19 +51,37 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name
 }
 
+/// Helper function used internally, to mirror how rustc_test chooses a TestType.
+/// Must be called with the result of `file!()` (called in macro output) to be meaningful.
+#[cfg(feature = "post_v139")]
+pub fn test_type(path: &'static str) -> TestType {
+    if path.starts_with("src") {
+        // `/src` folder contains unit-tests.
+        TestType::UnitTest
+    } else if path.starts_with("tests") {
+        // `/tests` folder contains integration tests.
+        TestType::IntegrationTest
+    } else {
+        // Crate layout doesn't match expected one, test type is unknown.
+        TestType::Unknown
+    }
+}
+
+
 #[cfg(feature = "post_v139")]
 fn test_desc(
     name: TestName,
     ignore: bool,
     should_panic: ShouldPanic,
     allow_fail: bool,
+    source_file: &str,
 ) -> TestDesc {
     TestDesc {
         name,
         ignore,
         should_panic,
         allow_fail,
-        test_type: TestType::Unknown,
+        test_type: crate::test_type(desc.source_file),
     }
 }
 
@@ -72,6 +91,7 @@ fn test_desc(
     ignore: bool,
     should_panic: ShouldPanic,
     allow_fail: bool,
+    _source_file: &str,
 ) -> TestDesc {
     TestDesc {
         name,
@@ -207,6 +227,7 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
                     false,
+                    desc.source_file
                 ),
                 testfn,
             };
@@ -250,6 +271,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 desc.ignore,
                 ShouldPanic::No,
                 false,
+                desc.source_file,
             ),
             testfn,
         };
@@ -409,6 +431,7 @@ fn render_test_descriptor(
                     // FIXME: should support!
                     desc.should_panic.into(),
                     false,
+                    desc.source_file,
                 ),
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
