@@ -1,7 +1,5 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
-#[cfg(feature = "post_v139")]
-use crate::rustc_test::TestType;
 use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
@@ -57,13 +55,14 @@ fn test_desc(
     ignore: bool,
     should_panic: ShouldPanic,
     allow_fail: bool,
+    source_file: &'static str,
 ) -> TestDesc {
     TestDesc {
         name,
         ignore,
         should_panic,
         allow_fail,
-        test_type: TestType::Unknown,
+        test_type: crate::test_type(source_file),
     }
 }
 
@@ -73,6 +72,7 @@ fn test_desc(
     ignore: bool,
     should_panic: ShouldPanic,
     allow_fail: bool,
+    _source_file: &'static str,
 ) -> TestDesc {
     TestDesc {
         name,
@@ -207,9 +207,9 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     ignore,
                     ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
-                    allow_fail: false,
-                    test_type: crate::test_type(desc.source_file),
-                },
+                    false,
+                    desc.source_file,
+                ),
                 testfn,
             };
 
@@ -354,7 +354,7 @@ pub fn register(new: &mut RegistrationNode) {
 #[doc(hidden)]
 pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
-    let mut opts = match crate::rustc_test::parse_opts(&args) {
+    let mut opts = match crate::rustc_test::test::parse_opts(&args) {
         Some(Ok(o)) => o,
         Some(Err(msg)) => panic!("{:?}", msg),
         None => return,
@@ -410,10 +410,10 @@ fn render_test_descriptor(
                     TestName::StaticTestName(real_name(desc.name)),
                     desc.ignore,
                     // FIXME: should support!
-                    should_panic: desc.should_panic.into(),
-                    allow_fail: false,
-                    test_type: crate::test_type(desc.source_file),
-                },
+                    desc.should_panic.into(),
+                    false,
+                    desc.source_file,
+                ),
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
         }

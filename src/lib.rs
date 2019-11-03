@@ -200,10 +200,12 @@ fn read_to_end(path: &Path) -> Vec<u8> {
     input
 }
 
+#[cfg(feature = "post_v139")]
 use crate::rustc_test::TestType;
 
 /// Helper function used internally, to mirror how rustc_test chooses a TestType.
 /// Must be called with the result of `file!()` (called in macro output) to be meaningful.
+#[cfg(feature = "post_v139")]
 pub fn test_type(path: &'static str) -> TestType {
     if path.starts_with("src") {
         // `/src` folder contains unit-tests.
