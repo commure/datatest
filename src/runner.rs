@@ -49,23 +49,6 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name
 }
 
-fn test_desc(
-    name: TestName,
-    ignore: bool,
-    should_panic: ShouldPanic,
-    allow_fail: bool,
-    source_file: &'static str,
-) -> TestDesc {
-    TestDesc {
-        name,
-        ignore,
-        should_panic,
-        allow_fail,
-        #[cfg(feature = "post_v139")]
-        test_type: crate::test_type(source_file),
-    }
-}
-
 /// When compiling tests, Rust compiler collects all items marked with `#[test_case]` and passes
 /// references to them to the test runner in a slice (like `&[&test_a, &test_b, &test_c]`). Since
 /// we need a different descriptor for our data-driven tests than the standard one, we have two
@@ -186,14 +169,15 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 
             // Generate a standard test descriptor
             let desc = TestDescAndFn {
-                desc: test_desc(
-                    TestName::DynTestName(test_name),
+                desc: TestDesc {
+                    name: TestName::DynTestName(test_name),
                     ignore,
-                    ShouldPanic::No,
+                    should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
-                    false,
-                    desc.source_file,
-                ),
+                    allow_fail: false,
+                    #[cfg(feature = "post_v139")]
+                    test_type: crate::test_type(desc.source_file),
+                },
                 testfn,
             };
 
@@ -236,6 +220,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 ignore: desc.ignore,
                 should_panic: ShouldPanic::No,
                 allow_fail: false,
+                #[cfg(feature = "post_v139")]
                 test_type: crate::test_type(desc.source_file),
             },
             testfn,
@@ -397,14 +382,15 @@ fn render_test_descriptor(
         }
         DatatestTestDesc::RegularTest(desc) => {
             rendered.push(TestDescAndFn {
-                desc: test_desc(
-                    TestName::StaticTestName(real_name(desc.name)),
-                    desc.ignore,
+                desc: TestDesc {
+                    name: TestName::StaticTestName(real_name(desc.name)),
+                    ignore: desc.ignore,
+                    should_panic: desc.should_panic.into(),
                     // FIXME: should support!
-                    desc.should_panic.into(),
-                    false,
-                    desc.source_file,
-                ),
+                    allow_fail: false,
+                    #[cfg(feature = "post_v139")]
+                    test_type: crate::test_type(desc.source_file),
+                },
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
         }
