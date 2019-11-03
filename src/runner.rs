@@ -49,7 +49,6 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name
 }
 
-#[cfg(feature = "post_v139")]
 fn test_desc(
     name: TestName,
     ignore: bool,
@@ -62,23 +61,8 @@ fn test_desc(
         ignore,
         should_panic,
         allow_fail,
+        #[cfg(feature = "post_v139")]
         test_type: crate::test_type(source_file),
-    }
-}
-
-#[cfg(not(feature = "post_v139"))]
-fn test_desc(
-    name: TestName,
-    ignore: bool,
-    should_panic: ShouldPanic,
-    allow_fail: bool,
-    _source_file: &'static str,
-) -> TestDesc {
-    TestDesc {
-        name,
-        ignore,
-        should_panic,
-        allow_fail,
     }
 }
 
@@ -354,7 +338,14 @@ pub fn register(new: &mut RegistrationNode) {
 #[doc(hidden)]
 pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
-    let mut opts = match crate::rustc_test::test::parse_opts(&args) {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "post_v139")] {
+            let parsed = crate::rustc_test::test::parse_opts(&args);
+        } else {
+            let parsed = crate::rustc_test::parse_opts(&args);
+        }
+    };
+    let mut opts = match parsed {
         Some(Ok(o)) => o,
         Some(Err(msg)) => panic!("{:?}", msg),
         None => return,

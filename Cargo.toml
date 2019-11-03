@@ -22,6 +22,7 @@ serde = "1.0.84"
 serde_yaml = "0.8.7"
 yaml-rust = "0.4.2"
 ctor = "0.1.10"
+cfg-if = "0.1.10"
 region = { version = "2.1.2", optional = true }
 
 [dev-dependencies]
