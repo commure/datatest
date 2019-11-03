@@ -15,6 +15,6 @@ jobs:
           cargo check --all --all-targets --features "${{ join(' ', parameters.features) }}"
         displayName: cargo check
       - script: |
-          cargo clippy --all
+          cargo clippy --all --features "${{ join(' ', parameters.features) }}"
         displayName: cargo clippy --all
 
