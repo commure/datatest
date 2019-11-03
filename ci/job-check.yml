@@ -1,5 +1,6 @@
 parameters:
   toolchain: stable
+  features: []
 jobs:
   - job: check
     pool:
@@ -11,7 +12,7 @@ jobs:
           components:
             - clippy
       - script: |
-          cargo check --all --all-targets
+          cargo check --all --all-targets --features "${{ join(' ', parameters.features) }}"
         displayName: cargo check
       - script: |
           cargo clippy --all

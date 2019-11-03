@@ -9,6 +9,7 @@ jobs:
   - template: ci/job-check.yml
     parameters:
       toolchain: nightly-2019-11-02
+      features: ["post_v139"]
   - template: ci/job-test.yml
     parameters:
       name: test_stable
@@ -22,3 +23,4 @@ jobs:
     parameters:
       name: test_nightly
       toolchain: nightly-2019-11-02
+      features: ["post_v139"]
