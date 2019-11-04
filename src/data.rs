@@ -11,6 +11,7 @@ pub struct DataTestDesc {
     pub name: &'static str,
     pub ignore: bool,
     pub describefn: fn() -> Vec<DataTestCaseDesc<DataTestFn>>,
+    pub source_file: &'static str,
 }
 
 /// Used internally for `#[datatest::data(..)]` tests.

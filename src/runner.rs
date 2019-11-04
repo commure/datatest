@@ -1,7 +1,5 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
-#[cfg(feature = "post_v139")]
-use crate::rustc_test::TestType;
 use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
@@ -34,6 +32,7 @@ pub struct RegularTestDesc {
     pub ignore: bool,
     pub testfn: fn(),
     pub should_panic: RegularShouldPanic,
+    pub source_file: &'static str,
 }
 
 fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
@@ -48,37 +47,6 @@ fn derive_test_name(root: &Path, path: &Path, test_name: &str) -> String {
     test_name += "::";
     test_name += &relative.to_string_lossy();
     test_name
-}
-
-#[cfg(feature = "post_v139")]
-fn test_desc(
-    name: TestName,
-    ignore: bool,
-    should_panic: ShouldPanic,
-    allow_fail: bool,
-) -> TestDesc {
-    TestDesc {
-        name,
-        ignore,
-        should_panic,
-        allow_fail,
-        test_type: TestType::Unknown,
-    }
-}
-
-#[cfg(not(feature = "post_v139"))]
-fn test_desc(
-    name: TestName,
-    ignore: bool,
-    should_panic: ShouldPanic,
-    allow_fail: bool,
-) -> TestDesc {
-    TestDesc {
-        name,
-        ignore,
-        should_panic,
-        allow_fail,
-    }
 }
 
 /// When compiling tests, Rust compiler collects all items marked with `#[test_case]` and passes
@@ -201,13 +169,15 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 
             // Generate a standard test descriptor
             let desc = TestDescAndFn {
-                desc: test_desc(
-                    TestName::DynTestName(test_name),
+                desc: TestDesc {
+                    name: TestName::DynTestName(test_name),
                     ignore,
-                    ShouldPanic::No,
+                    should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
-                    false,
-                ),
+                    allow_fail: false,
+                    #[cfg(feature = "post_v139")]
+                    test_type: crate::test_type(desc.source_file),
+                },
                 testfn,
             };
 
@@ -245,12 +215,14 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 
         // Generate a standard test descriptor
         let desc = TestDescAndFn {
-            desc: test_desc(
-                TestName::DynTestName(case_name),
-                desc.ignore,
-                ShouldPanic::No,
-                false,
-            ),
+            desc: TestDesc {
+                name: TestName::DynTestName(case_name),
+                ignore: desc.ignore,
+                should_panic: ShouldPanic::No,
+                allow_fail: false,
+                #[cfg(feature = "post_v139")]
+                test_type: crate::test_type(desc.source_file),
+            },
             testfn,
         };
 
@@ -351,7 +323,14 @@ pub fn register(new: &mut RegistrationNode) {
 #[doc(hidden)]
 pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
-    let mut opts = match crate::rustc_test::parse_opts(&args) {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "post_v139")] {
+            let parsed = crate::rustc_test::test::parse_opts(&args);
+        } else {
+            let parsed = crate::rustc_test::parse_opts(&args);
+        }
+    };
+    let mut opts = match parsed {
         Some(Ok(o)) => o,
         Some(Err(msg)) => panic!("{:?}", msg),
         None => return,
@@ -403,13 +382,15 @@ fn render_test_descriptor(
         }
         DatatestTestDesc::RegularTest(desc) => {
             rendered.push(TestDescAndFn {
-                desc: test_desc(
-                    TestName::StaticTestName(real_name(desc.name)),
-                    desc.ignore,
+                desc: TestDesc {
+                    name: TestName::StaticTestName(real_name(desc.name)),
+                    ignore: desc.ignore,
+                    should_panic: desc.should_panic.into(),
                     // FIXME: should support!
-                    desc.should_panic.into(),
-                    false,
-                ),
+                    allow_fail: false,
+                    #[cfg(feature = "post_v139")]
+                    test_type: crate::test_type(desc.source_file),
+                },
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
         }

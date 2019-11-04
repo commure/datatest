@@ -8,7 +8,8 @@ jobs:
   - template: ci/job-rustfmt.yml
   - template: ci/job-check.yml
     parameters:
-      toolchain: nightly-2019-09-13
+      toolchain: nightly-2019-11-02
+      features: ["post_v139"]
   - template: ci/job-test.yml
     parameters:
       name: test_stable
@@ -21,4 +22,5 @@ jobs:
   - template: ci/job-test.yml
     parameters:
       name: test_nightly
-      toolchain: nightly-2019-09-13
+      toolchain: nightly-2019-11-02
+      features: ["post_v139"]
