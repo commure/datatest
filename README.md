@@ -76,7 +76,7 @@ YAML file with a list of test cases (via `#[datatest::data(..)]` attribute, see 
 Each test case in this file (the file contents must be an array) is deserialized into the
 argument type of the test function and a separate test instance is created for it.
 
-Test function must take exactly one argument and the typoe of this argument must implement
+Test function must take exactly one argument and the type of this argument must implement
 [`serde::Deserialize`]. Optionally, if this implements [`ToString`] (or [`std::fmt::Display`]),
 it's [`ToString::to_string`] result is used to generate test name.
 
