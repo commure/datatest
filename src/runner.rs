@@ -175,7 +175,6 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
                     allow_fail: false,
-                    #[cfg(feature = "post_v139")]
                     test_type: crate::test_type(desc.source_file),
                 },
                 testfn,
@@ -220,7 +219,6 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 ignore: desc.ignore,
                 should_panic: ShouldPanic::No,
                 allow_fail: false,
-                #[cfg(feature = "post_v139")]
                 test_type: crate::test_type(desc.source_file),
             },
             testfn,
@@ -323,13 +321,7 @@ pub fn register(new: &mut RegistrationNode) {
 #[doc(hidden)]
 pub fn runner(tests: &[&dyn TestDescriptor]) {
     let args = std::env::args().collect::<Vec<_>>();
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "post_v139")] {
-            let parsed = crate::rustc_test::test::parse_opts(&args);
-        } else {
-            let parsed = crate::rustc_test::parse_opts(&args);
-        }
-    };
+    let parsed = crate::rustc_test::test::parse_opts(&args);
     let mut opts = match parsed {
         Some(Ok(o)) => o,
         Some(Err(msg)) => panic!("{:?}", msg),
@@ -388,7 +380,6 @@ fn render_test_descriptor(
                     should_panic: desc.should_panic.into(),
                     // FIXME: should support!
                     allow_fail: false,
-                    #[cfg(feature = "post_v139")]
                     test_type: crate::test_type(desc.source_file),
                 },
                 testfn: TestFn::StaticTestFn(desc.testfn),
