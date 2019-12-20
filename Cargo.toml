@@ -22,7 +22,6 @@ serde = "1.0.84"
 serde_yaml = "0.8.7"
 yaml-rust = "0.4.2"
 ctor = "0.1.10"
-cfg-if = "0.1.10"
 region = { version = "2.1.2", optional = true }
 
 [dev-dependencies]
@@ -38,9 +37,6 @@ members = [
 # Without that feature turned on, the default test registration method is to use `ctor` crate to create a global list
 # of all tests.
 test_case_registration = []
-
-# Allow this to build on compiler versions >1.39.0. Needed due to unstable API changes.
-post_v139 = []
 
 # Use very, very, very sketchy way of intercepting a test runner on a stable Rust. Without that feature, there are two
 # options:
