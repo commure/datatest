@@ -1,6 +1,6 @@
 [package]
 name = "datatest"
-version = "0.6.0-alpha.0"
+version = "0.6.0"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
