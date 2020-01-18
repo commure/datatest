@@ -166,7 +166,7 @@ pub fn files_test_case_internal(
 ///
 /// In addition to that, this trampoline function is also responsible for mapping `&PathBuf`
 /// references into argument types. There is some trait magic involved to make code work for both
-/// cases when function takes argument as a slice (`&str`, `&[u8`) and for cases when function takes
+/// cases when function takes argument as a slice (`&str`, `&[u8]`) and for cases when function takes
 /// argument as owned (`String`, `Vec<u8>`).
 ///
 /// The difficulty here is that for owned arguments we can create value and just pass it down to the
