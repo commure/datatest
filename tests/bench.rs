@@ -31,6 +31,7 @@ use test::Bencher;
   output = r"${1}.output.txt",
 })]
 #[bench]
+#[cfg(unix)]
 fn files_test_strings(bencher: &mut Bencher, input: &str, output: &str) {
     bencher.iter(|| {
         assert_eq!(format!("Hello, {}!", input), output);
