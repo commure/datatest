@@ -25,12 +25,23 @@ use std::path::Path;
 #[datatest::files("tests/test-cases", {
     // Pattern is defined via `in` operator. Every file from the `directory` above will be matched
     // against this regular expression and every matched file will produce a separate test.
-    input in r"^(.*)\.input\.txt",
+    input in r"^(.*)\.input\.txt" if !uses_symbolic_files,
     // Template defines a rule for deriving dependent file name based on captures of the pattern.
     output = r"${1}.output.txt",
 })]
 #[test]
 fn files_test_strings(input: &str, output: &str) {
+    assert_eq!(format!("Hello, {}!", input), output);
+}
+
+/// Same as above, but uses symbolic files, which is only tested on unix platforms
+#[datatest::files("tests/test-cases", {
+    input in r"^(.*)\.input\.txt",
+    output = r"${1}.output.txt",
+})]
+#[test]
+#[cfg(unix)]
+fn symbolic_files_test_strings(input: &str, output: &str) {
     assert_eq!(format!("Hello, {}!", input), output);
 }
 
@@ -73,6 +84,10 @@ fn files_test_slices(input: &[u8], output: &[u8]) {
 
 fn is_ignore(path: &Path) -> bool {
     path.display().to_string().ends_with("case-02.input.txt")
+}
+
+fn uses_symbolic_files(path: &Path) -> bool {
+    path.display().to_string().ends_with("case-03.input.txt")
 }
 
 /// Ignore first test case!
