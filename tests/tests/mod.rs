@@ -45,6 +45,17 @@ fn files_tests_not_working_yet_and_never_will(input: &str, output: &str) {
     assert_eq!(input, output, "these two will never match!");
 }
 
+/// Same as above, but uses symbolic files, which is only tested on unix platforms
+#[datatest::files("tests/test-cases", {
+    input in r"^(.*)\.input-linked\.txt",
+    output = r"${1}.output-linked.txt",
+})]
+#[test]
+#[cfg(unix)]
+fn symbolic_files_test_strings(input: &str, output: &str) {
+    assert_eq!(format!("Hello, {}!", input), output);
+}
+
 /// Can declare with `&std::path::Path` to get path instead of the content
 #[datatest::files("tests/test-cases", {
     input in r"^(.*)\.input\.txt",

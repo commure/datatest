@@ -101,6 +101,7 @@ pub enum DatatestTestDesc<'a> {
 /// and return an iterator of their paths.
 fn iterate_directory(path: &Path) -> impl Iterator<Item = PathBuf> {
     walkdir::WalkDir::new(path)
+        .follow_links(true)
         .into_iter()
         .map(Result::unwrap)
         .filter(|entry| {
