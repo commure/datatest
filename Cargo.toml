@@ -1,6 +1,6 @@
 [package]
 name = "datatest"
-version = "0.6.2"
+version = "0.6.3-alpha.0"
 authors = ["Ivan Dubrov <ivan@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
@@ -15,7 +15,7 @@ name = "datatest_stable"
 harness = false
 
 [dependencies]
-datatest-derive = { path = "datatest-derive", version = "= 0.6.2"}
+datatest-derive = { path = "datatest-derive", version = "= 0.6.3-alpha.0"}
 regex = "1.0.0"
 walkdir = "2.1.4"
 serde = "1.0.84"
