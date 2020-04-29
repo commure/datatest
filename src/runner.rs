@@ -401,31 +401,37 @@ pub fn check_test_runner() {
 }
 
 pub trait Termination {
-    type Error: fmt::Debug;
-    fn error_value(&self) -> Option<&Self::Error>;
+    fn report(self) -> i32;
 }
 
-impl Termination for () {
-    type Error = ();
-    fn error_value(&self) -> Option<&()> {
-        None
+impl<E: fmt::Debug> Termination for Result<(), E> {
+    fn report(self) -> i32 {
+        match self {
+            Ok(()) => ().report(),
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                // FIXME This should really be system-specific, but std around
+                // this area looks very unstable at the moment.
+                255
+            }
+        }
     }
 }
 
-impl<T, E: fmt::Debug> Termination for Result<T, E> {
-    type Error = E;
-    fn error_value(&self) -> Option<&E> {
-        self.as_ref().err()
+impl Termination for () {
+    #[inline]
+    fn report(self) -> i32 {
+        0
     }
 }
 
 #[doc(hidden)]
 pub fn assert_test_result<T: Termination>(result: T) {
-    if let Some(err) = result.error_value() {
-        eprintln!("Error: {:?}", err);
-        panic!(
-            "the test returned a termination value with a non-zero status code (255) \
-         which indicates a failure"
-        );
-    }
+    let code = result.report();
+    assert_eq!(
+        code, 0,
+        "the test returned a termination value with a non-zero status code ({}) \
+         which indicates a failure",
+        code
+    );
 }
