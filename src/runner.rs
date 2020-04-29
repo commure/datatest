@@ -1,6 +1,7 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
 use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
@@ -400,26 +401,31 @@ pub fn check_test_runner() {
 }
 
 pub trait Termination {
-    fn is_success(&self) -> bool;
+    type Error: fmt::Debug;
+    fn error_value(&self) -> Option<&Self::Error>;
 }
 
 impl Termination for () {
-    fn is_success(&self) -> bool {
-        true
+    type Error = ();
+    fn error_value(&self) -> Option<&()> {
+        None
     }
 }
 
-impl<T, E> Termination for Result<T, E> {
-    fn is_success(&self) -> bool {
-        self.is_ok()
+impl<T, E: fmt::Debug> Termination for Result<T, E> {
+    type Error = E;
+    fn error_value(&self) -> Option<&E> {
+        self.as_ref().err()
     }
 }
 
 #[doc(hidden)]
 pub fn assert_test_result<T: Termination>(result: T) {
-    assert!(
-        result.is_success(),
-        "the test returned a termination value with a non-zero status code (255) \
+    if let Some(err) = result.error_value() {
+        eprintln!("Error: {:?}", err);
+        panic!(
+            "the test returned a termination value with a non-zero status code (255) \
          which indicates a failure"
-    );
+        );
+    }
 }
