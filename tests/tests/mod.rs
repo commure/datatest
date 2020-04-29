@@ -45,6 +45,29 @@ fn files_tests_not_working_yet_and_never_will(input: &str, output: &str) {
     assert_eq!(input, output, "these two will never match!");
 }
 
+/// Always returns an `Err` failure, so marked by `#[ignore]`
+#[ignore]
+#[datatest::files("tests/test-cases", {
+    _input in r"^(.*)\.input\.txt",
+    _output = r"${1}.output.txt",
+})]
+#[test]
+fn tests_may_return_result_err(_input: &str, _output: &str) -> Result<(), String> {
+    Err("This is a helpful error message that you will now see when you run this test.".to_string())
+}
+
+/// Same as the first test, but returns `Ok(())` rather than `()`.
+#[ignore]
+#[datatest::files("tests/test-cases", {
+    input in r"^(.*)\.input\.txt",
+    output = r"${1}.output.txt",
+})]
+#[test]
+fn tests_may_return_result_ok(input: &str, output: &str) -> Result<(), String> {
+    assert_eq!(format!("Hello, {}!", input), output);
+    Ok(())
+}
+
 /// Same as above, but uses symbolic files, which is only tested on unix platforms
 #[datatest::files("tests/test-cases", {
     input in r"^(.*)\.input-linked\.txt",

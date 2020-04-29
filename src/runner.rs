@@ -1,6 +1,7 @@
 use crate::data::{DataTestDesc, DataTestFn};
 use crate::files::{FilesTestDesc, FilesTestFn};
 use crate::rustc_test::{Bencher, ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 
@@ -400,26 +401,37 @@ pub fn check_test_runner() {
 }
 
 pub trait Termination {
-    fn is_success(&self) -> bool;
+    fn report(self) -> i32;
 }
 
-impl Termination for () {
-    fn is_success(&self) -> bool {
-        true
+impl<E: fmt::Debug> Termination for Result<(), E> {
+    fn report(self) -> i32 {
+        match self {
+            Ok(()) => ().report(),
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                // FIXME This should really be system-specific, but std around
+                // this area looks very unstable at the moment.
+                255
+            }
+        }
     }
 }
 
-impl<T, E> Termination for Result<T, E> {
-    fn is_success(&self) -> bool {
-        self.is_ok()
+impl Termination for () {
+    #[inline]
+    fn report(self) -> i32 {
+        0
     }
 }
 
 #[doc(hidden)]
 pub fn assert_test_result<T: Termination>(result: T) {
-    assert!(
-        result.is_success(),
-        "the test returned a termination value with a non-zero status code (255) \
-         which indicates a failure"
+    let code = result.report();
+    assert_eq!(
+        code, 0,
+        "the test returned a termination value with a non-zero status code ({}) \
+         which indicates a failure",
+        code
     );
 }
