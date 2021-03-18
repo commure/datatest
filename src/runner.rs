@@ -276,15 +276,23 @@ pub fn register(new: &mut RegistrationNode) {
     // `#[test]` tests on stable channel where we don't have a way to override test runner.
     crate::interceptor::install_interceptor();
 
+    // REGISTRY is a linked list that all the registration functions attempt to push to. This is
+    // the push function.
+    //
+    // Since the registration functions are triggered by `rust-ctor` at executable startup, all the
+    // registration functions will run sequentially. Further, there will be no overlap between this
+    // list push and the list pops that execute during runner(). So it's all good.
     let reg = &REGISTRY;
     let mut current = reg.load(Ordering::SeqCst);
     loop {
-        let previous = reg.compare_and_swap(current, new, Ordering::SeqCst);
-        if previous == current {
-            new.next = unsafe { previous.as_ref() };
-            return;
-        } else {
-            current = previous;
+        match reg.compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(previous) => {
+                new.next = unsafe { previous.as_ref() };
+                break;
+            }
+            Err(previous) => {
+                current = previous;
+            }
         }
     }
 }
