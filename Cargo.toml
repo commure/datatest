@@ -27,6 +27,9 @@ region = { version = "2.1.2", optional = true }
 [dev-dependencies]
 serde = { version = "1.0.84", features = ["derive"] }
 
+[build-dependencies]
+version_check = "0.9.3"
+
 [workspace]
 members = [
     "datatest-derive"
