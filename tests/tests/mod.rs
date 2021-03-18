@@ -1,6 +1,3 @@
-#[cfg(feature = "stable")]
-use datatest::test;
-
 use serde::Deserialize;
 use std::fmt;
 use std::path::Path;
