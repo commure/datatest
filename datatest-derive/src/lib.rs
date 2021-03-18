@@ -374,19 +374,17 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
 }
 
 fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
-    if let Ok(meta) = attr.parse_meta() {
-        if let syn::Meta::List(list) = meta {
-            for item in list.nested {
-                match item {
-                    syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
-                        if nv.path.is_ident("expected") =>
-                    {
-                        if let syn::Lit::Str(ref value) = nv.lit {
-                            return ShouldPanic::YesWithMessage(value.value());
-                        }
+    if let Ok(syn::Meta::List(list)) = attr.parse_meta() {
+        for item in list.nested {
+            match item {
+                syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
+                    if nv.path.is_ident("expected") =>
+                {
+                    if let syn::Lit::Str(ref value) = nv.lit {
+                        return ShouldPanic::YesWithMessage(value.value());
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
     }
