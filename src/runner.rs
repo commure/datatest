@@ -255,9 +255,25 @@ fn real_name(name: &str) -> &str {
 /// instead.
 fn adjust_for_test_name(opts: &mut crate::rustc_test::TestOpts, name: &str) {
     let real_test_name = real_name(name);
-    if opts.filter_exact && opts.filter.as_ref().map_or(false, |s| s == real_test_name) {
-        opts.filter_exact = false;
-        opts.filter = Some(format!("{}::", real_test_name));
+    // rustc 1.52.0 changes `filters` to accept multiple filters from the command line
+    #[cfg(feature = "rustc_test_TestOpts_filters_vec")]
+    {
+        if opts.filter_exact {
+            if let Some(test_name) = opts.filters.iter_mut().find(|s| *s == real_test_name) {
+                test_name.push_str("::");
+                opts.filter_exact = false;
+            }
+        }
+    }
+    // fallback for rust < 1.52
+    #[cfg(not(feature = "rustc_test_TestOpts_filters_vec"))]
+    {
+        if opts.filter_exact && opts.filter.as_ref().map_or(false, |s| s == real_test_name) {
+            if let Some(test_name) = opts.filter.as_mut() {
+                test_name.push_str("::");
+                opts.filter_exact = false;
+            }
+        }
     }
 }
 
@@ -276,15 +292,23 @@ pub fn register(new: &mut RegistrationNode) {
     // `#[test]` tests on stable channel where we don't have a way to override test runner.
     crate::interceptor::install_interceptor();
 
+    // REGISTRY is a linked list that all the registration functions attempt to push to. This is
+    // the push function.
+    //
+    // Since the registration functions are triggered by `rust-ctor` at executable startup, all the
+    // registration functions will run sequentially. Further, there will be no overlap between this
+    // list push and the list pops that execute during runner(). So it's all good.
     let reg = &REGISTRY;
     let mut current = reg.load(Ordering::SeqCst);
     loop {
-        let previous = reg.compare_and_swap(current, new, Ordering::SeqCst);
-        if previous == current {
-            new.next = unsafe { previous.as_ref() };
-            return;
-        } else {
-            current = previous;
+        match reg.compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(previous) => {
+                new.next = unsafe { previous.as_ref() };
+                break;
+            }
+            Err(previous) => {
+                current = previous;
+            }
         }
     }
 }

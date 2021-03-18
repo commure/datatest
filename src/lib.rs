@@ -1,4 +1,5 @@
 #![feature(test)]
+#![allow(incomplete_features)]
 #![feature(specialization)]
 #![feature(termination_trait_lib)]
 //! Crate for supporting data-driven tests.
@@ -136,21 +137,25 @@ pub mod __internal {
     pub use crate::runner::{
         check_test_runner, register, RegistrationNode, RegularShouldPanic, RegularTestDesc,
     };
-    #[cfg(not(feature = "test_case_registration"))]
+    // i.e. no TCR, use ctor instead
+    #[cfg(not(all(feature = "rustc_is_nightly", feature = "test_case_registration")))]
     pub use datatest_derive::{data_ctor_internal, files_ctor_internal};
-    #[cfg(feature = "test_case_registration")]
+    // i.e. use TCR
+    #[cfg(all(feature = "rustc_is_nightly", feature = "test_case_registration"))]
     pub use datatest_derive::{data_test_case_internal, files_test_case_internal};
 }
 
 pub use crate::runner::runner;
 
-#[cfg(not(feature = "test_case_registration"))]
+// i.e. no TCR, use ctor instead
+#[cfg(not(all(feature = "rustc_is_nightly", feature = "test_case_registration")))]
 pub use datatest_derive::{
     data_ctor_registration as data, files_ctor_registration as files,
     test_ctor_registration as test,
 };
 
-#[cfg(feature = "test_case_registration")]
+// i.e. use TCR
+#[cfg(all(feature = "rustc_is_nightly", feature = "test_case_registration"))]
 pub use datatest_derive::{
     data_test_case_registration as data, files_test_case_registration as files,
 };
@@ -165,7 +170,7 @@ use std::path::Path;
 
 /// `datatest` test harness entry point. Should be declared in the test module, like in the
 /// following snippet:
-/// ```rust,norun
+/// ```rust,no_run
 /// datatest::harness!();
 /// ```
 ///
