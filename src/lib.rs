@@ -1,4 +1,5 @@
 #![feature(test)]
+#![allow(incomplete_features)]
 #![feature(specialization)]
 #![feature(termination_trait_lib)]
 //! Crate for supporting data-driven tests.
