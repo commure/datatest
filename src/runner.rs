@@ -256,7 +256,8 @@ fn real_name(name: &str) -> &str {
 fn adjust_for_test_name(opts: &mut crate::rustc_test::TestOpts, name: &str) {
     let real_test_name = real_name(name);
     // rustc 1.52.0 changes `filters` to accept multiple filters from the command line
-    #[cfg(feature = "rustc_test_TestOpts_filters_vec")] {
+    #[cfg(feature = "rustc_test_TestOpts_filters_vec")]
+    {
         if opts.filter_exact {
             if let Some(test_name) = opts.filters.iter_mut().find(|s| *s == real_test_name) {
                 test_name.push_str("::");
@@ -265,7 +266,8 @@ fn adjust_for_test_name(opts: &mut crate::rustc_test::TestOpts, name: &str) {
         }
     }
     // fallback for rust < 1.52
-    #[cfg(not(feature = "rustc_test_TestOpts_filters_vec"))] {
+    #[cfg(not(feature = "rustc_test_TestOpts_filters_vec"))]
+    {
         if opts.filter_exact && opts.filter.as_ref().map_or(false, |s| s == real_test_name) {
             if let Some(test_name) = opts.filter.as_mut() {
                 test_name.push_str("::");
