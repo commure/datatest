@@ -255,9 +255,11 @@ fn real_name(name: &str) -> &str {
 /// instead.
 fn adjust_for_test_name(opts: &mut crate::rustc_test::TestOpts, name: &str) {
     let real_test_name = real_name(name);
-    if opts.filter_exact && opts.filter.as_ref().map_or(false, |s| s == real_test_name) {
-        opts.filter_exact = false;
-        opts.filter = Some(format!("{}::", real_test_name));
+    if opts.filter_exact {
+        if let Some(test_name_index) = opts.filters.iter().position(|s| s == real_test_name) {
+            opts.filter_exact = false;
+            opts.filters[test_name_index] = format!("{}::", real_test_name);
+        }
     }
 }
 
