@@ -165,7 +165,7 @@ use std::path::Path;
 
 /// `datatest` test harness entry point. Should be declared in the test module, like in the
 /// following snippet:
-/// ```rust,norun
+/// ```rust,no_run
 /// datatest::harness!();
 /// ```
 ///
