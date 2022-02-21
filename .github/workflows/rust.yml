@@ -2,6 +2,8 @@
 #  toolchains as default
 on: [pull_request]
 name: Rust
+env:
+  RUSTC_BOOTSTRAP: datatest
 jobs:
   rustfmt:
     name: Verify formatting

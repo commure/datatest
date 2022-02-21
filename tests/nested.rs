@@ -1,3 +1,4 @@
+#![cfg(all(feature = "rustc_is_nightly"))]
 #![feature(custom_test_frameworks)]
 #![test_runner(datatest::runner)]
 
