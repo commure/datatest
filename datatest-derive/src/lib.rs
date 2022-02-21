@@ -373,6 +373,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     }
 }
 
+#[allow(clippy::collapsible_match)]
 fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
     if let Ok(syn::Meta::List(list)) = attr.parse_meta() {
         for item in list.nested {

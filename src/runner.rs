@@ -178,6 +178,8 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
+                    no_run: false,
+                    compile_fail: false,
                 },
                 testfn,
             };
@@ -222,6 +224,8 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 should_panic: ShouldPanic::No,
                 allow_fail: false,
                 test_type: crate::test_type(desc.source_file),
+                compile_fail: false,
+                no_run: false,
             },
             testfn,
         };
@@ -301,14 +305,17 @@ pub fn register(new: &mut RegistrationNode) {
     let reg = &REGISTRY;
     let mut current = reg.load(Ordering::SeqCst);
     loop {
-        match reg.compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst) {
-            Ok(previous) => {
-                new.next = unsafe { previous.as_ref() };
-                break;
-            }
-            Err(previous) => {
-                current = previous;
-            }
+        let previous = match reg.compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
+        {
+            Ok(x) => x,
+            Err(x) => x,
+        };
+
+        if previous == current {
+            new.next = unsafe { previous.as_ref() };
+            return;
+        } else {
+            current = previous;
         }
     }
 }
@@ -407,6 +414,8 @@ fn render_test_descriptor(
                     // FIXME: should support!
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
+                    compile_fail: false,
+                    no_run: false,
                 },
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })
