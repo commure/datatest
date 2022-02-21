@@ -61,7 +61,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.58.1
           default: true
           components: clippy
 
@@ -81,7 +81,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2021-12-12
           default: true
           components: clippy
 
