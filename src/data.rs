@@ -1,5 +1,5 @@
 //! Support module for `#[datatest::data(..)]`
-use rustc_test::{Bencher, TDynBenchFn};
+use rustc_test::Bencher;
 use serde::de::DeserializeOwned;
 use std::path::Path;
 use yaml_rust::parser::Event;
@@ -18,7 +18,7 @@ pub struct DataTestDesc {
 #[doc(hidden)]
 pub enum DataTestFn {
     TestFn(Box<dyn FnOnce() + Send + 'static>),
-    BenchFn(Box<dyn TDynBenchFn + 'static>),
+    BenchFn(Box<dyn Fn(&mut Bencher) + Send + 'static>),
 }
 
 /// Descriptor of the data test case where the type of the test case data is `T`.
@@ -75,12 +75,31 @@ pub struct DataBenchFn<T>(pub fn(&mut Bencher, T), pub T)
 where
     T: Send + Clone;
 
-impl<T> rustc_test::TDynBenchFn for DataBenchFn<T>
+impl<'r, T> Fn<(&'r mut Bencher,)> for DataBenchFn<T>
 where
     T: Send + Clone,
 {
-    fn run(&self, harness: &mut Bencher) {
-        (self.0)(harness, self.1.clone())
+    extern "rust-call" fn call(&self, (bencher,): (&'r mut Bencher,)) {
+        (self.0)(bencher, self.1.clone());
+    }
+}
+
+impl<'r, T> FnOnce<(&'r mut Bencher,)> for DataBenchFn<T>
+where
+    T: Send + Clone,
+{
+    type Output = ();
+    extern "rust-call" fn call_once(self, harness: (&'r mut Bencher,)) {
+        (self.0)(harness.0, self.1.clone())
+    }
+}
+
+impl<'r, T> FnMut<(&'r mut Bencher,)> for DataBenchFn<T>
+where
+    T: Send + Clone,
+{
+    extern "rust-call" fn call_mut(&mut self, harness: (&'r mut Bencher,)) {
+        (self.0)(harness.0, self.1.clone())
     }
 }
 

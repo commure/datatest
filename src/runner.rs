@@ -117,9 +117,22 @@ fn iterate_directory(path: &Path) -> impl Iterator<Item = PathBuf> {
 
 struct FilesBenchFn(fn(&mut Bencher, &[PathBuf]), Vec<PathBuf>);
 
-impl rustc_test::TDynBenchFn for FilesBenchFn {
-    fn run(&self, harness: &mut Bencher) {
-        (self.0)(harness, &self.1)
+impl<'r> Fn<(&'r mut Bencher,)> for FilesBenchFn {
+    extern "rust-call" fn call(&self, (bencher,): (&'r mut Bencher,)) {
+        (self.0)(bencher, &self.1[..]);
+    }
+}
+
+impl<'r> FnOnce<(&'r mut Bencher,)> for FilesBenchFn {
+    type Output = ();
+    extern "rust-call" fn call_once(self, harness: (&'r mut Bencher,)) {
+        (self.0)(harness.0, &self.1)
+    }
+}
+
+impl<'r> FnMut<(&'r mut Bencher,)> for FilesBenchFn {
+    extern "rust-call" fn call_mut(&mut self, harness: (&'r mut Bencher,)) {
+        (self.0)(harness.0, &self.1)
     }
 }
 
@@ -176,10 +189,13 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     ignore,
                     should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
+                    #[cfg(bootstrap)]
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
                     no_run: false,
                     compile_fail: false,
+                    #[cfg(not(bootstrap))]
+                    ignore_message: None,
                 },
                 testfn,
             };
@@ -199,7 +215,7 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
 }
 
 fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
-    let prefix_name = real_name(&desc.name);
+    let prefix_name = real_name(desc.name);
 
     let cases = (desc.describefn)();
     for case in cases {
@@ -222,10 +238,13 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 name: TestName::DynTestName(case_name),
                 ignore: desc.ignore,
                 should_panic: ShouldPanic::No,
+                #[cfg(bootstrap)]
                 allow_fail: false,
                 test_type: crate::test_type(desc.source_file),
                 compile_fail: false,
                 no_run: false,
+                #[cfg(not(bootstrap))]
+                ignore_message: None,
             },
             testfn,
         };
@@ -399,11 +418,11 @@ fn render_test_descriptor(
         }
         DatatestTestDesc::FilesTest(files) => {
             render_files_test(files, rendered);
-            adjust_for_test_name(opts, &files.name);
+            adjust_for_test_name(opts, files.name);
         }
         DatatestTestDesc::DataTest(data) => {
             render_data_test(data, rendered);
-            adjust_for_test_name(opts, &data.name);
+            adjust_for_test_name(opts, data.name);
         }
         DatatestTestDesc::RegularTest(desc) => {
             rendered.push(TestDescAndFn {
@@ -412,10 +431,13 @@ fn render_test_descriptor(
                     ignore: desc.ignore,
                     should_panic: desc.should_panic.into(),
                     // FIXME: should support!
+                    #[cfg(bootstrap)]
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
                     compile_fail: false,
                     no_run: false,
+                    #[cfg(not(bootstrap))]
+                    ignore_message: None,
                 },
                 testfn: TestFn::StaticTestFn(desc.testfn),
             })

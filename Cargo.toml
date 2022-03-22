@@ -1,7 +1,7 @@
 [package]
 name = "datatest"
-version = "0.7.0"
-authors = ["Ivan Dubrov <ivan@commure.com>"]
+version = "0.7.1"
+authors = ["Ivan Dubrov <ivan@commure.com>", "Giovanny Gutierrez <giovanny.gutierrez@commure.com>"]
 edition = "2018"
 repository = "https://github.com/commure/datatest"
 license = "MIT/Apache-2.0"
@@ -15,7 +15,7 @@ name = "datatest_stable"
 harness = false
 
 [dependencies]
-datatest-derive = { path = "datatest-derive", version = "= 0.7.0"}
+datatest-derive = { path = "datatest-derive", version = "= 0.7.1"}
 regex = "1.0.0"
 walkdir = "2.1.4"
 serde = "1.0.84"

@@ -134,12 +134,12 @@ where
 
 impl<'a> TakeArg<'a, String> for String {
     fn take(&mut self) -> String {
-        std::mem::replace(self, String::new())
+        std::mem::take(self)
     }
 }
 
 impl<'a> TakeArg<'a, Vec<u8>> for Vec<u8> {
     fn take(&mut self) -> Vec<u8> {
-        std::mem::replace(self, Vec::new())
+        std::mem::take(self)
     }
 }
