@@ -56,12 +56,11 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target
-
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.58.1
+          toolchain: 1.59.0
           default: true
           components: clippy
 
@@ -77,11 +76,16 @@ jobs:
           command: test
           args: --all --all-targets --features subvert_stable_guarantees
 
+      - name: Cargo clean (stable)
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean
+
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-12-12
+          toolchain: nightly-2022-03-21
           default: true
           components: clippy
 

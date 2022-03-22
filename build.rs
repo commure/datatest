@@ -26,4 +26,16 @@ fn main() {
     if rustc::is_min_version("1.52.0").unwrap_or(false) {
         println!("cargo:rustc-cfg=feature=\"rustc_test_TestOpts_filters_vec\"");
     }
+
+    if !rustc::is_min_version("1.59.0").unwrap_or(false) {
+        println!("cargo:rustc-cfg=feature=\"rustc_test_TDynBenchFn\"");
+    }
+
+    if !rustc::is_min_version("1.60.0").unwrap_or(false) {
+        println!("cargo:rustc-cfg=feature=\"rustc_test_Allow_fail\"");
+    }
+
+    if rustc::is_min_version("1.61.0").unwrap_or(false) {
+        println!("cargo:rustc-cfg=feature=\"rustc_test_Ignore_messages\"");
+    }
 }

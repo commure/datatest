@@ -2,6 +2,8 @@
 #![allow(incomplete_features)]
 #![feature(specialization)]
 #![feature(termination_trait_lib)]
+#![feature(unboxed_closures)]
+#![feature(fn_traits)]
 //! Crate for supporting data-driven tests.
 //!
 //! Data-driven tests are tests where individual cases are defined via data rather than in code.
