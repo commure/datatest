@@ -56,26 +56,25 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target
-      # TODO: Enable this once we have a stable toolchain without TDynBenchFn (1.60+)
-      # - name: Install stable toolchain
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     profile: minimal
-      #     toolchain: 1.59.0
-      #     default: true
-      #     components: clippy
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.59.0
+          default: true
+          components: clippy
 
-      # - name: Cargo clippy (stable)
-      #   uses: actions-rs/clippy-check@v1
-      #   with:
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     args: --all-features --features subvert_stable_guarantees
+      - name: Cargo clippy (stable)
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --features subvert_stable_guarantees
 
-      # - name: Cargo test (stable)
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
-      #     args: --all --all-targets --features subvert_stable_guarantees
+      - name: Cargo test (stable)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --all-targets --features subvert_stable_guarantees
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1

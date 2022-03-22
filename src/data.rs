@@ -1,5 +1,7 @@
 //! Support module for `#[datatest::data(..)]`
 use rustc_test::Bencher;
+#[cfg(feature = "rustc_test_TDynBenchFn")]
+use rustc_test::TDynBenchFn;
 use serde::de::DeserializeOwned;
 use std::path::Path;
 use yaml_rust::parser::Event;
@@ -18,6 +20,11 @@ pub struct DataTestDesc {
 #[doc(hidden)]
 pub enum DataTestFn {
     TestFn(Box<dyn FnOnce() + Send + 'static>),
+
+    #[cfg(feature = "rustc_test_TDynBenchFn")]
+    BenchFn(Box<dyn TDynBenchFn + 'static>),
+
+    #[cfg(not(feature = "rustc_test_TDynBenchFn"))]
     BenchFn(Box<dyn Fn(&mut Bencher) + Send + 'static>),
 }
 
@@ -74,6 +81,16 @@ impl<T: ToString> TestNameWithDefault for T {
 pub struct DataBenchFn<T>(pub fn(&mut Bencher, T), pub T)
 where
     T: Send + Clone;
+
+#[cfg(feature = "rustc_test_TDynBenchFn")]
+impl<T> rustc_test::TDynBenchFn for DataBenchFn<T>
+where
+    T: Send + Clone,
+{
+    fn run(&self, harness: &mut Bencher) {
+        (self.0)(harness, self.1.clone())
+    }
+}
 
 impl<'r, T> Fn<(&'r mut Bencher,)> for DataBenchFn<T>
 where
