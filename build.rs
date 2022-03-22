@@ -27,7 +27,7 @@ fn main() {
         println!("cargo:rustc-cfg=feature=\"rustc_test_TestOpts_filters_vec\"");
     }
 
-    if !rustc::is_min_version("1.60.0").unwrap_or(false) {
+    if !rustc::is_min_version("1.59.0").unwrap_or(false) {
         println!("cargo:rustc-cfg=feature=\"rustc_test_TDynBenchFn\"");
     }
 
