@@ -76,6 +76,11 @@ jobs:
           command: test
           args: --all --all-targets --features subvert_stable_guarantees
 
+      - name: Cargo clean (stable)
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean
+
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
         with:
