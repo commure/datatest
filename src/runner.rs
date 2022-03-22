@@ -196,7 +196,7 @@ fn render_files_test(desc: &FilesTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                     ignore,
                     should_panic: ShouldPanic::No,
                     // Cannot be used on stable: https://github.com/rust-lang/rust/issues/46488
-                    #[cfg(feature = "rustc_test_TDynBenchFn")]
+                    #[cfg(feature = "rustc_test_Allow_fail")]
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
                     no_run: false,
@@ -245,7 +245,7 @@ fn render_data_test(desc: &DataTestDesc, rendered: &mut Vec<TestDescAndFn>) {
                 name: TestName::DynTestName(case_name),
                 ignore: desc.ignore,
                 should_panic: ShouldPanic::No,
-                #[cfg(feature = "rustc_test_TDynBenchFn")]
+                #[cfg(feature = "rustc_test_Allow_fail")]
                 allow_fail: false,
                 test_type: crate::test_type(desc.source_file),
                 compile_fail: false,
@@ -438,7 +438,7 @@ fn render_test_descriptor(
                     ignore: desc.ignore,
                     should_panic: desc.should_panic.into(),
                     // FIXME: should support!
-                    #[cfg(feature = "rustc_test_TDynBenchFn")]
+                    #[cfg(feature = "rustc_test_Allow_fail")]
                     allow_fail: false,
                     test_type: crate::test_type(desc.source_file),
                     compile_fail: false,
