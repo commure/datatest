@@ -20,8 +20,13 @@ fn intercept_test_main_static() {
     unsafe {
         let diff_bytes = diff.to_le_bytes();
         let bytes = ptr as *mut u8;
-        let _handle = region::protect_with_handle(bytes, 5, region::Protection::WRITE_EXECUTE)
-            .expect("failed to modify page protection to intercept `test_main_static`");
+        let result = region::protect_with_handle(bytes, 5, region::Protection::WRITE_EXECUTE);
+        let _handle = match result {
+            Ok(h) => h,
+            Err(err) => {
+                panic!("Failed to set memory protection, {:?}", err);
+            }
+        };
 
         std::ptr::write(bytes.offset(0), 0xe9);
         std::ptr::write(bytes.offset(1), diff_bytes[0]);

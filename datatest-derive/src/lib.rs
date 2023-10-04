@@ -376,19 +376,26 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
 
 #[allow(clippy::collapsible_match)]
 fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
-    if let Err(err) = attr.parse_nested_meta(|meta| {
+    let mut message: Option<String> = None;
+    _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("expected") {
-            return match meta.value() {
-                Ok(v) => Err(syn::Error::new(v.span(), v.to_string())),
-                Err(err) => Err(err),
-            };
+            if let Ok(v) = meta.value() {
+                let mut value = v.to_string();
+                if value.starts_with("\"") {
+                    value.remove(0);
+                }
+                if value.ends_with("\"") {
+                    value.pop();
+                }
+                message = Some(value);
+            }
         }
         Ok(())
-    }) {
-        return ShouldPanic::YesWithMessage(err.to_string());
+    });
+    match message {
+        Some(message) => ShouldPanic::YesWithMessage(message),
+        None => ShouldPanic::Yes,
     }
-
-    ShouldPanic::Yes
 }
 
 /// Parse `#[data(...)]` attribute arguments. It's either a function returning
