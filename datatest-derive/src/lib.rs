@@ -9,7 +9,7 @@ use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Type, Token};
+use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Token, Type};
 
 type Error = syn::parse::Error;
 
@@ -69,7 +69,8 @@ impl Parse for FilesTestArgs {
         let content;
         let _brace_token = braced!(content in input);
 
-        let args: Punctuated<TemplateArg, Comma> = content.parse_terminated(TemplateArg::parse, Token![,])?;
+        let args: Punctuated<TemplateArg, Comma> =
+            content.parse_terminated(TemplateArg::parse, Token![,])?;
         let args = args
             .into_pairs()
             .map(|p| {
