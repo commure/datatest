@@ -9,7 +9,7 @@ use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Type};
+use syn::{braced, parse_macro_input, FnArg, Ident, ItemFn, Pat, PatIdent, PatType, Type, Token};
 
 type Error = syn::parse::Error;
 
@@ -35,7 +35,7 @@ impl Parse for TemplateArg {
         let value = input.parse::<syn::LitStr>()?;
         if is_pattern && input.peek(syn::token::If) {
             let _if = input.parse::<syn::token::If>()?;
-            let _not = input.parse::<syn::token::Bang>()?;
+            let _not = input.parse::<syn::token::Not>()?;
             ignore_fn = Some(input.parse::<syn::Path>()?);
         }
         Ok(Self {
@@ -69,7 +69,7 @@ impl Parse for FilesTestArgs {
         let content;
         let _brace_token = braced!(content in input);
 
-        let args: Punctuated<TemplateArg, Comma> = content.parse_terminated(TemplateArg::parse)?;
+        let args: Punctuated<TemplateArg, Comma> = content.parse_terminated(TemplateArg::parse, Token![,])?;
         let args = args
             .into_pairs()
             .map(|p| {
@@ -329,7 +329,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     let test_pos = func
         .attrs
         .iter()
-        .position(|attr| attr.path.is_ident("test"));
+        .position(|attr| attr.path().is_ident("test"));
     if let Some(pos) = test_pos {
         func.attrs.remove(pos);
     }
@@ -338,7 +338,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     let bench_pos = func
         .attrs
         .iter()
-        .position(|attr| attr.path.is_ident("bench"));
+        .position(|attr| attr.path().is_ident("bench"));
     if let Some(pos) = bench_pos {
         func.attrs.remove(pos);
     }
@@ -347,7 +347,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
     let ignore_pos = func
         .attrs
         .iter()
-        .position(|attr| attr.path.is_ident("ignore"));
+        .position(|attr| attr.path().is_ident("ignore"));
     if let Some(pos) = ignore_pos {
         func.attrs.remove(pos);
     }
@@ -358,7 +358,7 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
         let should_panic_pos = func
             .attrs
             .iter()
-            .position(|attr| attr.path.is_ident("should_panic"));
+            .position(|attr| attr.path().is_ident("should_panic"));
         if let Some(pos) = should_panic_pos {
             let attr = &func.attrs[pos];
             should_panic = parse_should_panic(attr);
@@ -375,20 +375,18 @@ fn handle_common_attrs(func: &mut ItemFn, regular_test: bool) -> FuncInfo {
 
 #[allow(clippy::collapsible_match)]
 fn parse_should_panic(attr: &syn::Attribute) -> ShouldPanic {
-    if let Ok(syn::Meta::List(list)) = attr.parse_meta() {
-        for item in list.nested {
-            match item {
-                syn::NestedMeta::Meta(syn::Meta::NameValue(ref nv))
-                    if nv.path.is_ident("expected") =>
-                {
-                    if let syn::Lit::Str(ref value) = nv.lit {
-                        return ShouldPanic::YesWithMessage(value.value());
-                    }
-                }
-                _ => {}
-            }
+    if let Err(err) = attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("expected") {
+            return match meta.value() {
+                Ok(v) => Err(syn::Error::new(v.span(), v.to_string())),
+                Err(err) => Err(err),
+            };
         }
+        Ok(())
+    }) {
+        return ShouldPanic::YesWithMessage(err.to_string());
     }
+
     ShouldPanic::Yes
 }
 
